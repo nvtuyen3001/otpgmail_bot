@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dịch vụ thuê số OTP</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+        }
+        
+        h1 {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        
+        .service-selector {
+            margin-bottom: 20px;
+        }
+        
+        .service-selector label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            font-size: 14px;
+        }
+        
+        .service-selector select {
+            width: 100%;
+            max-width: 300px;
+            padding: 10px 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+        }
+        
+        .btn-rent {
+            background: #00a8ff;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: background 0.3s;
+        }
+        
+        .btn-rent:hover {
+            background: #0097e6;
+        }
+        
+        .btn-rent:active {
+            transform: scale(0.98);
+        }
+        
+        .table-container {
+            margin-top: 30px;
+            overflow-x: auto;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        
+        thead {
+            background: #f8f9fa;
+        }
+        
+        th {
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid #dee2e6;
+            color: #495057;
+        }
+        
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        tbody tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .status {
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: 500;
+            display: inline-block;
+        }
+        
+        .status.waiting {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .status.completed {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status.expired {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .otp-code {
+            font-weight: 600;
+            color: #00a8ff;
+            font-size: 15px;
+        }
+        
+        .phone-number {
+            font-family: 'Courier New', monospace;
+            font-weight: 500;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Dịch vụ</h1>
+
+        <div class="service-selector">
+            <label for="service">Chọn dịch vụ:</label>
+            <select id="service">
+                <option value="khotaikhoan-2">KhoTaiKhoan - Gmail/Google</option>
+                <option value="viotp-3">VIOTP - Gmail (Vinaphone VN)</option>
+            </select>
+        </div>
+
+        <button class="btn-rent" onclick="rentNumber()">Thuê số</button>
+
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>STT</th>
+                        <th>Dịch vụ</th>
+                        <th>Số điện thoại</th>
+                        <th>OTP</th>
+                        <th>Thời gian</th>
+                        <th>Trạng thái</th>
+                    </tr>
+                </thead>
+                <tbody id="orderTable">
+                    <tr>
+                        <td colspan="6" class="empty-state">Chưa có đơn nào. Nhấn "Thuê số" để bắt đầu.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let orders = [];
+        let checkIntervals = {};
+        let orderCounter = 0;
+
+        // Hàm định dạng thời gian
+        function formatTime(date) {
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = date.getFullYear();
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            const seconds = String(date.getSeconds()).padStart(2, '0');
+            return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+        }
+
+        // Hàm cập nhật bảng
+        function updateTable() {
+            const tbody = document.getElementById('orderTable');
+
+            if (orders.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Chưa có đơn nào. Nhấn "Thuê số" để bắt đầu.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = orders.map((order, index) => `
+        <tr>
+          <td>${index + 1}</td>
+          <td>${order.service}</td>
+          <td class="phone-number">${order.phone}</td>
+          <td>${order.otp ? '<span class="otp-code">' + order.otp + '</span>' : '-'}</td>
+          <td>${order.time}</td>
+          <td>
+            <span class="status ${order.statusClass}">${order.statusText}</span>
+          </td>
+        </tr>
+      `).join('');
+        }
+
+        // Hàm thuê số
+        async function rentNumber() {
+            const serviceValue = document.getElementById('service').value;
+            const btn = document.querySelector('.btn-rent');
+
+            // Parse provider-serviceId (ví dụ: "viotp-7" hoặc "khotaikhoan-2")
+            const [provider, serviceId] = serviceValue.split('-');
+            
+            console.log(`[Frontend] Renting number - Provider: ${provider}, ServiceId: ${serviceId}`);
+
+            btn.disabled = true;
+            btn.textContent = 'Đang xử lý...';
+
+            try {
+                const response = await fetch('/api/request', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        serviceId,
+                        provider
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    const serviceName = provider === 'viotp' ? 'VIOTP - Gmail (Vinaphone)' : 'KhoTaiKhoan - Gmail';
+                    
+                    const order = {
+                        requestId: data.requestId,
+                        provider: data.provider,
+                        service: serviceName,
+                        phone: data.phone,
+                        otp: null,
+                        time: formatTime(new Date()),
+                        statusText: 'Đang chờ OTP',
+                        statusClass: 'waiting'
+                    };
+
+                    orders.push(order);
+                    updateTable();
+
+                    // Bắt đầu kiểm tra OTP mỗi 3 giây
+                    startCheckingOTP(data.requestId, data.provider);
+                } else {
+                    alert('Lỗi: ' + (data.message || data.error || 'Không thể thuê số'));
+                }
+            } catch (error) {
+                alert('Lỗi kết nối: ' + error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Thuê số';
+            }
+        }
+
+        // Hàm kiểm tra OTP
+        async function checkOTP(requestId, provider) {
+            try {
+                console.log(`[Frontend] Checking OTP for requestId: ${requestId}, provider: ${provider}`);
+                
+                const response = await fetch(`/api/check?requestId=${requestId}&provider=${provider}`);
+                const data = await response.json();
+
+                console.log(`[Frontend] Response:`, data);
+
+                const order = orders.find(o => o.requestId === requestId);
+                if (!order) {
+                    console.log(`[Frontend] Order not found for requestId: ${requestId}`);
+                    return;
+                }
+
+                // Kiểm tra nếu có OTP (code không null và không rỗng)
+                if (data.success && data.otp_code && data.otp_code !== '') {
+                    // Nhận được OTP
+                    console.log(`[Frontend] ✅ OTP received: ${data.otp_code}`);
+                    order.otp = data.otp_code;
+                    order.statusText = 'Hoàn thành';
+                    order.statusClass = 'completed';
+                    updateTable();
+
+                    // Dừng kiểm tra
+                    clearInterval(checkIntervals[requestId]);
+                    delete checkIntervals[requestId];
+                } else if (data.status === 'expired') {
+                    // Hết hạn
+                    console.log(`[Frontend] ❌ Expired`);
+                    order.statusText = 'Hết hạn';
+                    order.statusClass = 'expired';
+                    updateTable();
+
+                    // Dừng kiểm tra
+                    clearInterval(checkIntervals[requestId]);
+                    delete checkIntervals[requestId];
+                } else if (data.status === 'pending') {
+                    console.log(`[Frontend] ⏳ Still pending...`);
+                }
+            } catch (error) {
+                console.error('[Frontend] Lỗi kiểm tra OTP:', error);
+            }
+        }
+
+        // Hàm bắt đầu kiểm tra OTP định kỳ
+        function startCheckingOTP(requestId, provider) {
+            console.log(`[Frontend] Starting polling for requestId: ${requestId}, provider: ${provider}`);
+            
+            // Kiểm tra ngay lập tức
+            checkOTP(requestId, provider);
+
+            // Sau đó kiểm tra mỗi 3 giây
+            checkIntervals[requestId] = setInterval(() => {
+                checkOTP(requestId, provider);
+            }, 3000); // Polling mỗi 3 giây
+
+            // Tự động dừng sau 10 phút (nếu không có phản hồi)
+            setTimeout(() => {
+                if (checkIntervals[requestId]) {
+                    console.log(`[Frontend] Timeout reached for requestId: ${requestId}`);
+                    clearInterval(checkIntervals[requestId]);
+                    delete checkIntervals[requestId];
+
+                    const order = orders.find(o => o.requestId === requestId);
+                    if (order && order.statusText === 'Đang chờ OTP') {
+                        order.statusText = 'Hết hạn';
+                        order.statusClass = 'expired';
+                        updateTable();
+                    }
+                }
+            }, 600000); // 10 phút
+        }
+    </script>
+</body>
+
+</html>
