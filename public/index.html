@@ -187,6 +187,12 @@
     </div>
 
     <script>
+        // API Configuration
+        // Đổi URL này khi deploy production
+        const API_BASE_URL = window.location.hostname === 'localhost' 
+            ? '' // Local: sử dụng same origin
+            : 'https://otpgmail-backend.onrender.com'; // Production: Render backend
+
         let orders = [];
         let checkIntervals = {};
         let orderCounter = 0;
@@ -239,7 +245,7 @@
             btn.textContent = 'Đang xử lý...';
 
             try {
-                const response = await fetch('/api/request', {
+                const response = await fetch(`${API_BASE_URL}/api/request`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -287,7 +293,7 @@
             try {
                 console.log(`[Frontend] Checking OTP for requestId: ${requestId}, provider: ${provider}`);
                 
-                const response = await fetch(`/api/check?requestId=${requestId}&provider=${provider}`);
+                const response = await fetch(`${API_BASE_URL}/api/check?requestId=${requestId}&provider=${provider}`);
                 const data = await response.json();
 
                 console.log(`[Frontend] Response:`, data);
