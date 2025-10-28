@@ -148,10 +148,71 @@
             padding: 40px;
             color: #6c757d;
         }
+        
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+        
+        .toast {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            border-radius: 6px;
+            padding: 15px 20px;
+            margin-bottom: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            min-width: 300px;
+            max-width: 400px;
+            animation: slideIn 0.3s ease-out;
+            font-size: 14px;
+        }
+        
+        .toast.success {
+            background: #d4edda;
+            color: #155724;
+            border-color: #c3e6cb;
+        }
+        
+        .toast.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border-color: #bee5eb;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+        }
+        
+        .toast.removing {
+            animation: slideOut 0.3s ease-in forwards;
+        }
     </style>
 </head>
 
 <body>
+    <div class="toast-container" id="toastContainer"></div>
+    
     <div class="container">
         <h1>Dịch vụ</h1>
 
@@ -197,6 +258,24 @@
         let checkIntervals = {};
         let orderCounter = 0;
 
+        // Hàm hiển thị thông báo
+        function showNotification(msg, type = 'error') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = msg;
+            
+            container.appendChild(toast);
+            
+            // Tự động xóa sau 3 giây
+            setTimeout(() => {
+                toast.classList.add('removing');
+                setTimeout(() => {
+                    container.removeChild(toast);
+                }, 300); // Đợi animation kết thúc
+            }, 3000);
+        }
+
         // Hàm định dạng thời gian
         function formatTime(date) {
             const day = String(date.getDate()).padStart(2, '0');
@@ -234,15 +313,11 @@
         // Hàm thuê số
         async function rentNumber() {
             const serviceValue = document.getElementById('service').value;
-            const btn = document.querySelector('.btn-rent');
 
             // Parse provider-serviceId (ví dụ: "viotp-7" hoặc "khotaikhoan-2")
             const [provider, serviceId] = serviceValue.split('-');
             
             console.log(`[Frontend] Renting number - Provider: ${provider}, ServiceId: ${serviceId}`);
-
-            btn.disabled = true;
-            btn.textContent = 'Đang xử lý...';
 
             try {
                 const response = await fetch(`${API_BASE_URL}/api/request`, {
@@ -278,13 +353,10 @@
                     // Bắt đầu kiểm tra OTP mỗi 3 giây
                     startCheckingOTP(data.requestId, data.provider);
                 } else {
-                    alert('Lỗi: ' + (data.message || data.error || 'Không thể thuê số'));
+                    showNotification('Lỗi: ' + (data.message || data.error || 'Không thể thuê số'));
                 }
             } catch (error) {
-                alert('Lỗi kết nối: ' + error.message);
-            } finally {
-                btn.disabled = false;
-                btn.textContent = 'Thuê số';
+                showNotification('Lỗi kết nối: ' + error.message);
             }
         }
 
