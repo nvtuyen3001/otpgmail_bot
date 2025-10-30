@@ -136,11 +136,37 @@
             font-weight: 600;
             color: #00a8ff;
             font-size: 15px;
+            cursor: pointer;
+            transition: all 0.2s;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        
+        .otp-code:hover {
+            background: #e3f2fd;
+            color: #0066cc;
+        }
+        
+        .otp-code:active {
+            background: #bbdefb;
         }
         
         .phone-number {
             font-family: 'Courier New', monospace;
             font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .phone-number:hover {
+            background: #e3f2fd;
+            color: #0066cc;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        
+        .phone-number:active {
+            background: #bbdefb;
         }
         
         .empty-state {
@@ -383,6 +409,71 @@
             return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
         }
 
+        // Hàm format số điện thoại để copy
+        function formatPhoneForCopy(phone, provider) {
+            // DailyOTP: Thêm + ở đầu (nếu chưa có)
+            if (provider === 'dailyotp') {
+                return phone.startsWith('+') ? phone : '+' + phone;
+            }
+            // VIOTP: Thêm +84 (loại bỏ số 0 đầu nếu có)
+            else if (provider === 'viotp') {
+                const cleanPhone = phone.replace(/^0+/, ''); // Bỏ số 0 đầu
+                return '+84' + cleanPhone;
+            }
+            // KhoTaiKhoan: giữ nguyên
+            else {
+                return phone;
+            }
+        }
+
+        // Hàm copy số điện thoại
+        function copyPhoneNumber(phone, provider, event) {
+            const formattedPhone = formatPhoneForCopy(phone, provider);
+            
+            // Copy vào clipboard
+            navigator.clipboard.writeText(formattedPhone).then(() => {
+                // Hiển thị thông báo
+                showNotification(`Đã copy: ${formattedPhone}`, 'success');
+                
+                // Hiệu ứng visual
+                const element = event.target;
+                const originalText = element.textContent;
+                element.textContent = '✓ Copied!';
+                element.style.color = '#28a745';
+                
+                setTimeout(() => {
+                    element.textContent = originalText;
+                    element.style.color = '';
+                }, 1000);
+            }).catch(err => {
+                showNotification('Không thể copy: ' + err.message, 'error');
+            });
+        }
+
+        // Hàm copy OTP
+        function copyOTP(otp, event) {
+            // Copy vào clipboard
+            navigator.clipboard.writeText(otp).then(() => {
+                // Hiển thị thông báo
+                showNotification(`Đã copy OTP: ${otp}`, 'success');
+                
+                // Hiệu ứng visual
+                const element = event.target;
+                const originalText = element.textContent;
+                element.textContent = '✓ Copied!';
+                element.style.background = '#28a745';
+                element.style.color = '#fff';
+                
+                setTimeout(() => {
+                    element.textContent = originalText;
+                    element.style.background = '';
+                    element.style.color = '';
+                }, 1000);
+            }).catch(err => {
+                showNotification('Không thể copy: ' + err.message, 'error');
+            });
+        }
+
         // Hàm cập nhật bảng
         function updateTable() {
             const tbody = document.getElementById('orderTable');
@@ -396,8 +487,8 @@
         <tr>
           <td>${index + 1}</td>
           <td>${order.service}</td>
-          <td class="phone-number">${order.phone}</td>
-          <td>${order.otp ? '<span class="otp-code">' + order.otp + '</span>' : '-'}</td>
+          <td class="phone-number" onclick="copyPhoneNumber('${order.phone}', '${order.provider}', event)" title="Click để copy">${order.phone}</td>
+          <td>${order.otp ? '<span class="otp-code" onclick="copyOTP(\'' + order.otp + '\', event)" title="Click để copy OTP">' + order.otp + '</span>' : '-'}</td>
           <td>${order.time}</td>
           <td>
             <span class="status ${order.statusClass}">${order.statusText}</span>
