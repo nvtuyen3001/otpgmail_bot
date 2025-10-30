@@ -8,7 +8,7 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// API Tokens - Đọc từ biến môi trường (.env file)
+// API Tokens - Đọc từ biến môi trường
 const KHOTAIKHOAN_TOKEN = process.env.KHOTAIKHOAN_TOKEN;
 const KHOTAIKHOAN_BASE_URL = 'https://api.khotaikhoan.vip/api/v1';
 
@@ -18,12 +18,30 @@ const VIOTP_BASE_URL = 'https://api.viotp.com';
 const DAILYOTP_API_KEY = process.env.DAILYOTP_API_KEY;
 const DAILYOTP_BASE_URL = 'https://dailyotp.com/api';
 
-// Kiểm tra token có tồn tại không
-if (!KHOTAIKHOAN_TOKEN || !VIOTP_TOKEN || !DAILYOTP_API_KEY) {
-  console.error('❌ Lỗi: Thiếu API tokens! Vui lòng tạo file .env và thêm tokens.');
-  console.error('💡 Copy file config.example.env thành .env và điền token thật.');
+// Kiểm tra token và log warning
+console.log('🔑 Checking API tokens...');
+if (!KHOTAIKHOAN_TOKEN) {
+  console.warn('⚠️  Warning: KHOTAIKHOAN_TOKEN not found');
+}
+if (!VIOTP_TOKEN) {
+  console.warn('⚠️  Warning: VIOTP_TOKEN not found');
+}
+if (!DAILYOTP_API_KEY) {
+  console.warn('⚠️  Warning: DAILYOTP_API_KEY not found');
+}
+
+// Chỉ exit nếu KHÔNG CÓ token nào
+if (!KHOTAIKHOAN_TOKEN && !VIOTP_TOKEN && !DAILYOTP_API_KEY) {
+  console.error('❌ Lỗi: Không có API token nào! Cần ít nhất 1 provider.');
+  console.error('💡 Local: Copy file config.example.env thành .env và điền token');
+  console.error('💡 Production: Set Environment Variables trong dashboard');
   process.exit(1);
 }
+
+console.log('✅ Available providers:');
+if (KHOTAIKHOAN_TOKEN) console.log('   - KhoTaiKhoan');
+if (VIOTP_TOKEN) console.log('   - VIOTP');
+if (DAILYOTP_API_KEY) console.log('   - DailyOTP');
 
 // Middleware
 app.use(cors());
@@ -38,6 +56,14 @@ app.post('/api/request', async (req, res) => {
     console.log(`[REQUEST] Provider: ${provider}, ServiceId: ${serviceId}`);
 
     if (provider === 'dailyotp') {
+      // Kiểm tra token
+      if (!DAILYOTP_API_KEY) {
+        return res.json({
+          success: false,
+          message: 'DailyOTP chưa được cấu hình. Vui lòng thêm DAILYOTP_API_KEY vào Environment Variables.'
+        });
+      }
+      
       // Gọi API DailyOTP GET /rent-number
       try {
         const response = await axios.get(`${DAILYOTP_BASE_URL}/rent-number`, {
@@ -82,6 +108,14 @@ app.post('/api/request', async (req, res) => {
         });
       }
     } else if (provider === 'viotp') {
+      // Kiểm tra token
+      if (!VIOTP_TOKEN) {
+        return res.json({
+          success: false,
+          message: 'VIOTP chưa được cấu hình. Vui lòng thêm VIOTP_TOKEN vào Environment Variables.'
+        });
+      }
+      
       // Gọi API VIOTP GET /request/getv2
       const response = await axios.get(`${VIOTP_BASE_URL}/request/getv2`, {
         params: {
@@ -108,6 +142,14 @@ app.post('/api/request', async (req, res) => {
         });
       }
     } else {
+      // Kiểm tra token
+      if (!KHOTAIKHOAN_TOKEN) {
+        return res.json({
+          success: false,
+          message: 'KhoTaiKhoan chưa được cấu hình. Vui lòng thêm KHOTAIKHOAN_TOKEN vào Environment Variables.'
+        });
+      }
+      
       // Gọi API KhoTaiKhoan POST /buy
       const response = await axios.post(`${KHOTAIKHOAN_BASE_URL}/buy`, {
         token: KHOTAIKHOAN_TOKEN,
