@@ -348,15 +348,21 @@
                 const response = await fetch(`${API_BASE_URL}/api/balance`);
                 const data = await response.json();
 
+                console.log('[Balance] Response:', data);
+
                 if (data.success && data.balances) {
                     // DailyOTP balance
                     const dailyotpEl = document.getElementById('dailyotpBalance');
                     if (data.balances.dailyotp && !data.balances.dailyotp.error) {
                         dailyotpEl.textContent = `$${data.balances.dailyotp.balance.toFixed(2)}`;
                         dailyotpEl.classList.remove('balance-error');
+                        dailyotpEl.title = 'DailyOTP balance';
                     } else {
+                        const errorMsg = data.balances.dailyotp?.error_message || 'API Error';
                         dailyotpEl.textContent = 'Error';
                         dailyotpEl.classList.add('balance-error');
+                        dailyotpEl.title = errorMsg;
+                        console.error('[Balance] DailyOTP Error:', errorMsg);
                     }
 
                     // VIOTP balance
@@ -368,8 +374,11 @@
                     }
                 }
             } catch (error) {
-                console.error('[Balance] Error:', error);
-                document.getElementById('dailyotpBalance').textContent = 'Error';
+                console.error('[Balance] Fetch Error:', error);
+                const dailyotpEl = document.getElementById('dailyotpBalance');
+                dailyotpEl.textContent = 'Network Error';
+                dailyotpEl.classList.add('balance-error');
+                dailyotpEl.title = error.message;
                 document.getElementById('viotpBalance').textContent = 'Error';
             }
         }
@@ -520,6 +529,8 @@
 
                 const data = await response.json();
 
+                console.log('[Frontend] Rent response:', data);
+
                 if (data.success) {
                     let serviceName;
                     if (provider === 'viotp') {
@@ -547,9 +558,12 @@
                     // Bắt đầu kiểm tra OTP mỗi 3 giây
                     startCheckingOTP(data.requestId, data.provider);
                 } else {
-                    showNotification('Lỗi: ' + (data.message || data.error || 'Không thể thuê số'));
+                    const errorMsg = data.message || data.error || 'Không thể thuê số';
+                    console.error('[Frontend] Rent failed:', data);
+                    showNotification('Lỗi: ' + errorMsg + (data.error_details ? ` (${JSON.stringify(data.error_details)})` : ''));
                 }
             } catch (error) {
+                console.error('[Frontend] Rent error:', error);
                 showNotification('Lỗi kết nối: ' + error.message);
             }
         }

@@ -39,29 +39,46 @@ app.post('/api/request', async (req, res) => {
 
     if (provider === 'dailyotp') {
       // Gọi API DailyOTP GET /rent-number
-      const response = await axios.get(`${DAILYOTP_BASE_URL}/rent-number`, {
-        params: {
-          appBrand: 'Google / Gmail / Youtube',
-          countryCode: 'BD',
-          serverName: 'Server 5',
-          api_key: DAILYOTP_API_KEY
-        }
-      });
-
-      console.log(`[REQUEST DAILYOTP] Response:`, JSON.stringify(response.data));
-
-      if (response.data && response.data.message === 'Success' && response.data.data) {
-        res.json({
-          success: true,
-          requestId: response.data.data.transId,
-          phone: response.data.data.phoneNumber,
-          price: response.data.data.cost,
-          provider: 'dailyotp'
+      try {
+        const response = await axios.get(`${DAILYOTP_BASE_URL}/rent-number`, {
+          params: {
+            appBrand: 'Google / Gmail / Youtube',
+            countryCode: 'BD',
+            serverName: 'Server 5',
+            api_key: DAILYOTP_API_KEY
+          },
+          timeout: 15000
         });
-      } else {
+
+        console.log(`[REQUEST DAILYOTP] Status: ${response.status}`);
+        console.log(`[REQUEST DAILYOTP] Response:`, JSON.stringify(response.data));
+
+        if (response.data && response.data.message === 'Success' && response.data.data) {
+          res.json({
+            success: true,
+            requestId: response.data.data.transId,
+            phone: response.data.data.phoneNumber,
+            price: response.data.data.cost,
+            provider: 'dailyotp'
+          });
+        } else {
+          console.error(`[REQUEST DAILYOTP] Error response:`, response.data);
+          res.json({
+            success: false,
+            message: response.data.message || 'Không thể thuê số từ DailyOTP',
+            error_details: response.data
+          });
+        }
+      } catch (dailyotpError) {
+        console.error(`[REQUEST DAILYOTP] API Error:`, {
+          message: dailyotpError.message,
+          status: dailyotpError.response?.status,
+          data: dailyotpError.response?.data
+        });
         res.json({
           success: false,
-          message: response.data.message || 'Không thể thuê số từ DailyOTP'
+          message: `DailyOTP API Error: ${dailyotpError.response?.data?.message || dailyotpError.message}`,
+          error_type: dailyotpError.code || 'UNKNOWN'
         });
       }
     } else if (provider === 'viotp') {
@@ -143,17 +160,31 @@ app.get('/api/balance', async (req, res) => {
     // DailyOTP balance
     try {
       const dailyotpResponse = await axios.get(`${DAILYOTP_BASE_URL}/me`, {
-        params: { api_key: DAILYOTP_API_KEY }
+        params: { api_key: DAILYOTP_API_KEY },
+        timeout: 10000
       });
+      console.log(`[BALANCE] DailyOTP Response:`, JSON.stringify(dailyotpResponse.data));
+      
       if (dailyotpResponse.data && dailyotpResponse.data.data) {
         balances.dailyotp = {
           balance: dailyotpResponse.data.data.balance || 0,
           limit: dailyotpResponse.data.data.limit || 0
         };
+      } else {
+        console.error('[BALANCE] DailyOTP invalid response:', dailyotpResponse.data);
+        balances.dailyotp = { balance: 0, error: true };
       }
     } catch (error) {
-      console.error('[BALANCE] DailyOTP error:', error.message);
-      balances.dailyotp = { balance: 0, error: true };
+      console.error('[BALANCE] DailyOTP API Error:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data
+      });
+      balances.dailyotp = { 
+        balance: 0, 
+        error: true,
+        error_message: error.response?.data?.message || error.message
+      };
     }
 
     // VIOTP balance - không có API endpoint
@@ -189,60 +220,76 @@ app.get('/api/check', async (req, res) => {
 
     if (provider === 'dailyotp') {
       // Gọi API DailyOTP GET /get-messages
-      const response = await axios.get(`${DAILYOTP_BASE_URL}/get-messages`, {
-        params: {
-          transId: requestId,
-          api_key: DAILYOTP_API_KEY
-        }
-      });
+      try {
+        const response = await axios.get(`${DAILYOTP_BASE_URL}/get-messages`, {
+          params: {
+            transId: requestId,
+            api_key: DAILYOTP_API_KEY
+          },
+          timeout: 10000
+        });
 
-      console.log(`[CHECK OTP DAILYOTP] Response:`, JSON.stringify(response.data));
+        console.log(`[CHECK OTP DAILYOTP] Status: ${response.status}`);
+        console.log(`[CHECK OTP DAILYOTP] Response:`, JSON.stringify(response.data));
 
-      if (response.data && response.data.message === 'Success' && response.data.data) {
-        const orderData = response.data.data;
-        
-        console.log(`[CHECK OTP DAILYOTP] Order Status: ${orderData.orderStatus}`);
-        
-        // Kiểm tra orderStatus - API trả về "Success" khi có OTP, không phải "Completed"
-        if (orderData.orderStatus === 'Success' && orderData.code) {
-          // Đã nhận OTP - API trả về sẵn code!
-          console.log(`[CHECK OTP DAILYOTP] ✅ OTP received: ${orderData.code}`);
-          res.json({
-            success: true,
-            otp_code: orderData.code,
-            status: 'completed',
-            message: orderData.message || null
-          });
-        } else if (orderData.orderStatus === 'Waiting message' || orderData.orderStatus === 'Pending') {
-          // Chưa có tin nhắn
-          console.log(`[CHECK OTP DAILYOTP] ⏳ Waiting for message...`);
-          res.json({
-            success: true,
-            otp_code: null,
-            status: 'pending'
-          });
-        } else if (orderData.orderStatus === 'Expired' || orderData.orderStatus === 'Cancelled' || orderData.orderStatus === 'Refunded') {
-          console.log(`[CHECK OTP DAILYOTP] ❌ Order ${orderData.orderStatus}`);
-          res.json({
-            success: true,
-            otp_code: null,
-            status: 'expired'
-          });
+        if (response.data && response.data.message === 'Success' && response.data.data) {
+          const orderData = response.data.data;
+          
+          console.log(`[CHECK OTP DAILYOTP] Order Status: ${orderData.orderStatus}`);
+          
+          // Kiểm tra orderStatus - API trả về "Success" khi có OTP
+          if (orderData.orderStatus === 'Success' && orderData.code) {
+            // Đã nhận OTP - API trả về sẵn code
+            console.log(`[CHECK OTP DAILYOTP] ✅ OTP received: ${orderData.code}`);
+            res.json({
+              success: true,
+              otp_code: orderData.code,
+              status: 'completed',
+              message: orderData.message || null
+            });
+          } else if (orderData.orderStatus === 'Waiting message' || orderData.orderStatus === 'Pending') {
+            // Chưa có tin nhắn
+            console.log(`[CHECK OTP DAILYOTP] ⏳ Waiting for message...`);
+            res.json({
+              success: true,
+              otp_code: null,
+              status: 'pending'
+            });
+          } else if (orderData.orderStatus === 'Expired' || orderData.orderStatus === 'Cancelled' || orderData.orderStatus === 'Refunded') {
+            console.log(`[CHECK OTP DAILYOTP] ❌ Order ${orderData.orderStatus}`);
+            res.json({
+              success: true,
+              otp_code: null,
+              status: 'expired'
+            });
+          } else {
+            // Trạng thái khác - log để debug
+            console.log(`[CHECK OTP DAILYOTP] ⚠️ Unknown status: ${orderData.orderStatus}`);
+            console.log(`[CHECK OTP DAILYOTP] Full data:`, JSON.stringify(orderData));
+            res.json({
+              success: true,
+              otp_code: orderData.code || null,
+              status: orderData.code ? 'completed' : 'pending',
+              message: orderData.message || null
+            });
+          }
         } else {
-          // Trạng thái khác - log để debug
-          console.log(`[CHECK OTP DAILYOTP] ⚠️ Unknown status: ${orderData.orderStatus}`);
-          console.log(`[CHECK OTP DAILYOTP] Full data:`, JSON.stringify(orderData));
+          console.error(`[CHECK OTP DAILYOTP] Invalid response:`, response.data);
           res.json({
-            success: true,
-            otp_code: orderData.code || null,
-            status: orderData.code ? 'completed' : 'pending',
-            message: orderData.message || null
+            success: false,
+            message: response.data.message || 'Không thể kiểm tra OTP'
           });
         }
-      } else {
+      } catch (dailyotpError) {
+        console.error(`[CHECK OTP DAILYOTP] API Error:`, {
+          message: dailyotpError.message,
+          status: dailyotpError.response?.status,
+          data: dailyotpError.response?.data
+        });
         res.json({
           success: false,
-          message: response.data.message || 'Không thể kiểm tra OTP'
+          message: `DailyOTP API Error: ${dailyotpError.response?.data?.message || dailyotpError.message}`,
+          error_type: dailyotpError.code || 'UNKNOWN'
         });
       }
     } else if (provider === 'viotp') {

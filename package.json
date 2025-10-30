@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "bot": "node telegram-bot.js",
-    "dev": "node server.js & node telegram-bot.js"
+    "dev": "node server.js & node telegram-bot.js",
+    "test:dailyotp": "node test_dailyotp_api.js"
   },
   "keywords": [
     "otp",
