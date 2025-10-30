@@ -207,12 +207,68 @@
         .toast.removing {
             animation: slideOut 0.3s ease-in forwards;
         }
+        
+        .balance-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            font-size: 14px;
+            min-width: 200px;
+            z-index: 999;
+        }
+        
+        .balance-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .balance-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        .balance-label {
+            font-weight: 500;
+            color: #495057;
+        }
+        
+        .balance-value {
+            font-weight: 600;
+            color: #00a8ff;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .balance-error {
+            color: #dc3545;
+            font-size: 12px;
+        }
+        
+        .balance-loading {
+            color: #6c757d;
+            font-size: 12px;
+        }
     </style>
 </head>
 
 <body>
     <div class="toast-container" id="toastContainer"></div>
     
+    <div class="balance-container" id="balanceContainer">
+        <div class="balance-item">
+            <span class="balance-label">DailyOTP:</span>
+            <span class="balance-value" id="dailyotpBalance">Loading...</span>
+        </div>
+        <div class="balance-item">
+            <span class="balance-label">VIOTP:</span>
+            <span class="balance-value" id="viotpBalance">N/A</span>
+        </div>
+    </div>
+
     <div class="container">
         <h1>Dịch vụ</h1>
 
@@ -221,6 +277,7 @@
             <select id="service">
                 <option value="khotaikhoan-2">KhoTaiKhoan - Gmail/Google</option>
                 <option value="viotp-3">VIOTP - Gmail (Vinaphone VN)</option>
+                <option value="dailyotp-gmail">DailyOTP - Gmail/Google/YouTube (Bangladesh Server 5)</option>
             </select>
         </div>
 
@@ -250,13 +307,52 @@
     <script>
         // API Configuration
         // Đổi URL này khi deploy production
-        const API_BASE_URL = window.location.hostname === 'localhost' 
-            ? '' // Local: sử dụng same origin
-            : 'https://otpgmail-bot.onrender.com'; // Production: Render backend
+        const API_BASE_URL = window.location.hostname === 'localhost' ?
+            '' // Local: sử dụng same origin
+            :
+            'https://otpgmail-bot.onrender.com'; // Production: Render backend
 
         let orders = [];
         let checkIntervals = {};
         let orderCounter = 0;
+
+        // Hàm lấy số dư
+        async function fetchBalance() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/balance`);
+                const data = await response.json();
+
+                if (data.success && data.balances) {
+                    // DailyOTP balance
+                    const dailyotpEl = document.getElementById('dailyotpBalance');
+                    if (data.balances.dailyotp && !data.balances.dailyotp.error) {
+                        dailyotpEl.textContent = `$${data.balances.dailyotp.balance.toFixed(2)}`;
+                        dailyotpEl.classList.remove('balance-error');
+                    } else {
+                        dailyotpEl.textContent = 'Error';
+                        dailyotpEl.classList.add('balance-error');
+                    }
+
+                    // VIOTP balance
+                    const viotpEl = document.getElementById('viotpBalance');
+                    if (data.balances.viotp && data.balances.viotp.available) {
+                        viotpEl.textContent = `$${data.balances.viotp.balance.toFixed(2)}`;
+                    } else {
+                        viotpEl.textContent = 'N/A';
+                    }
+                }
+            } catch (error) {
+                console.error('[Balance] Error:', error);
+                document.getElementById('dailyotpBalance').textContent = 'Error';
+                document.getElementById('viotpBalance').textContent = 'Error';
+            }
+        }
+
+        // Lấy số dư khi trang load
+        fetchBalance();
+        
+        // Refresh số dư mỗi 30 giây
+        setInterval(fetchBalance, 30000);
 
         // Hàm hiển thị thông báo
         function showNotification(msg, type = 'error') {
@@ -264,9 +360,9 @@
             const toast = document.createElement('div');
             toast.className = `toast ${type}`;
             toast.textContent = msg;
-            
+
             container.appendChild(toast);
-            
+
             // Tự động xóa sau 3 giây
             setTimeout(() => {
                 toast.classList.add('removing');
@@ -316,7 +412,7 @@
 
             // Parse provider-serviceId (ví dụ: "viotp-7" hoặc "khotaikhoan-2")
             const [provider, serviceId] = serviceValue.split('-');
-            
+
             console.log(`[Frontend] Renting number - Provider: ${provider}, ServiceId: ${serviceId}`);
 
             try {
@@ -334,8 +430,15 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    const serviceName = provider === 'viotp' ? 'VIOTP - Gmail (Vinaphone)' : 'KhoTaiKhoan - Gmail';
-                    
+                    let serviceName;
+                    if (provider === 'viotp') {
+                        serviceName = 'VIOTP - Gmail (Vinaphone)';
+                    } else if (provider === 'dailyotp') {
+                        serviceName = 'DailyOTP - Gmail/YouTube (BD)';
+                    } else {
+                        serviceName = 'KhoTaiKhoan - Gmail';
+                    }
+
                     const order = {
                         requestId: data.requestId,
                         provider: data.provider,
@@ -364,7 +467,7 @@
         async function checkOTP(requestId, provider) {
             try {
                 console.log(`[Frontend] Checking OTP for requestId: ${requestId}, provider: ${provider}`);
-                
+
                 const response = await fetch(`${API_BASE_URL}/api/check?requestId=${requestId}&provider=${provider}`);
                 const data = await response.json();
 
@@ -376,6 +479,12 @@
                     return;
                 }
 
+                // Debug: Log đầy đủ response data
+                console.log(`[Frontend] Full response data:`, JSON.stringify(data));
+                console.log(`[Frontend] data.success:`, data.success);
+                console.log(`[Frontend] data.otp_code:`, data.otp_code);
+                console.log(`[Frontend] data.status:`, data.status);
+
                 // Kiểm tra nếu có OTP (code không null và không rỗng)
                 if (data.success && data.otp_code && data.otp_code !== '') {
                     // Nhận được OTP
@@ -384,6 +493,9 @@
                     order.statusText = 'Hoàn thành';
                     order.statusClass = 'completed';
                     updateTable();
+
+                    // Hiển thị thông báo
+                    showNotification(`OTP nhận được: ${data.otp_code}`, 'success');
 
                     // Dừng kiểm tra
                     clearInterval(checkIntervals[requestId]);
@@ -400,6 +512,9 @@
                     delete checkIntervals[requestId];
                 } else if (data.status === 'pending') {
                     console.log(`[Frontend] ⏳ Still pending...`);
+                } else {
+                    // Trường hợp khác
+                    console.warn(`[Frontend] ⚠️ Unexpected response:`, data);
                 }
             } catch (error) {
                 console.error('[Frontend] Lỗi kiểm tra OTP:', error);
@@ -409,7 +524,7 @@
         // Hàm bắt đầu kiểm tra OTP định kỳ
         function startCheckingOTP(requestId, provider) {
             console.log(`[Frontend] Starting polling for requestId: ${requestId}, provider: ${provider}`);
-            
+
             // Kiểm tra ngay lập tức
             checkOTP(requestId, provider);
 
