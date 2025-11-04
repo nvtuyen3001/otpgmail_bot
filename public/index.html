@@ -304,7 +304,8 @@
                 <option value="khotaikhoan-2">KhoTaiKhoan - Gmail/Google</option>
                 <option value="viotp-3">VIOTP - Gmail (Vinaphone VN)</option>
                 <option value="dailyotp-bangladesh">DailyOTP - Gmail/YouTube (Bangladesh Server 5)</option>
-                <option value="dailyotp-cambodia">DailyOTP - Google (Cambodia Server 3)</option>
+                <option value="dailyotp-cambodia-s3">DailyOTP - Google (Cambodia Server 3)</option>
+                <option value="dailyotp-cambodia">DailyOTP - Gmail/YouTube (Cambodia Server 5)</option>
             </select>
         </div>
 
@@ -422,7 +423,7 @@
         // Hàm format số điện thoại để copy
         function formatPhoneForCopy(phone, provider) {
             // DailyOTP (Bangladesh, Cambodia): Thêm + ở đầu (nếu chưa có)
-            if (provider === 'dailyotp' || provider === 'dailyotp-bangladesh' || provider === 'dailyotp-cambodia') {
+            if (provider === 'dailyotp' || provider === 'dailyotp-bangladesh' || provider === 'dailyotp-cambodia' || provider === 'dailyotp-cambodia-s3') {
                 return phone.startsWith('+') ? phone : '+' + phone;
             }
             // VIOTP: Thêm +84 (loại bỏ số 0 đầu nếu có)
@@ -511,8 +512,19 @@
         async function rentNumber() {
             const serviceValue = document.getElementById('service').value;
 
-            // Parse provider-serviceId (ví dụ: "viotp-7" hoặc "khotaikhoan-2")
-            const [provider, serviceId] = serviceValue.split('-');
+            // Parse provider và serviceId
+            let provider, serviceId;
+            
+            // DailyOTP có thể có dấu - trong tên (dailyotp-cambodia-s3)
+            if (serviceValue.startsWith('dailyotp')) {
+                provider = serviceValue; // Giữ nguyên toàn bộ
+                serviceId = 'gmail'; // Dummy value
+            } else {
+                // Các provider khác: "viotp-7" hoặc "khotaikhoan-2"
+                const parts = serviceValue.split('-');
+                provider = parts[0];
+                serviceId = parts[1];
+            }
 
             console.log(`[Frontend] Renting number - Provider: ${provider}, ServiceId: ${serviceId}`);
 
@@ -536,8 +548,10 @@
                     let serviceName;
                     if (provider === 'viotp') {
                         serviceName = 'VIOTP - Gmail (Vinaphone)';
+                    } else if (provider === 'dailyotp-cambodia-s3') {
+                        serviceName = 'DailyOTP - Google (Cambodia S3)';
                     } else if (provider === 'dailyotp-cambodia') {
-                        serviceName = 'DailyOTP - Google (Cambodia)';
+                        serviceName = 'DailyOTP - Gmail/YouTube (Cambodia S5)';
                     } else if (provider === 'dailyotp' || provider === 'dailyotp-bangladesh') {
                         serviceName = 'DailyOTP - Gmail/YouTube (Bangladesh)';
                     } else {
