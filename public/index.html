@@ -303,7 +303,8 @@
             <select id="service">
                 <option value="khotaikhoan-2">KhoTaiKhoan - Gmail/Google</option>
                 <option value="viotp-3">VIOTP - Gmail (Vinaphone VN)</option>
-                <option value="dailyotp-gmail">DailyOTP - Gmail/Google/YouTube (Bangladesh Server 5)</option>
+                <option value="dailyotp-bangladesh">DailyOTP - Gmail/YouTube (Bangladesh Server 5)</option>
+                <option value="dailyotp-cambodia">DailyOTP - Google (Cambodia Server 3)</option>
             </select>
         </div>
 
@@ -420,8 +421,8 @@
 
         // Hàm format số điện thoại để copy
         function formatPhoneForCopy(phone, provider) {
-            // DailyOTP: Thêm + ở đầu (nếu chưa có)
-            if (provider === 'dailyotp') {
+            // DailyOTP (Bangladesh, Cambodia): Thêm + ở đầu (nếu chưa có)
+            if (provider === 'dailyotp' || provider === 'dailyotp-bangladesh' || provider === 'dailyotp-cambodia') {
                 return phone.startsWith('+') ? phone : '+' + phone;
             }
             // VIOTP: Thêm +84 (loại bỏ số 0 đầu nếu có)
@@ -535,8 +536,10 @@
                     let serviceName;
                     if (provider === 'viotp') {
                         serviceName = 'VIOTP - Gmail (Vinaphone)';
-                    } else if (provider === 'dailyotp') {
-                        serviceName = 'DailyOTP - Gmail/YouTube (BD)';
+                    } else if (provider === 'dailyotp-cambodia') {
+                        serviceName = 'DailyOTP - Google (Cambodia)';
+                    } else if (provider === 'dailyotp' || provider === 'dailyotp-bangladesh') {
+                        serviceName = 'DailyOTP - Gmail/YouTube (Bangladesh)';
                     } else {
                         serviceName = 'KhoTaiKhoan - Gmail';
                     }

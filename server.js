@@ -55,7 +55,7 @@ app.post('/api/request', async (req, res) => {
     
     console.log(`[REQUEST] Provider: ${provider}, ServiceId: ${serviceId}`);
 
-    if (provider === 'dailyotp') {
+    if (provider === 'dailyotp' || provider === 'dailyotp-bangladesh' || provider === 'dailyotp-cambodia') {
       // Kiểm tra token
       if (!DAILYOTP_API_KEY) {
         return res.json({
@@ -64,13 +64,27 @@ app.post('/api/request', async (req, res) => {
         });
       }
       
+      // Xác định country và server dựa vào provider
+      let appBrand, countryCode, serverName;
+      
+      if (provider === 'dailyotp-cambodia') {
+        appBrand = 'Google';
+        countryCode = 'KH'; // Cambodia
+        serverName = 'Server 3';
+      } else {
+        // Default: Bangladesh (dailyotp hoặc dailyotp-bangladesh)
+        appBrand = 'Google / Gmail / Youtube';
+        countryCode = 'BD'; // Bangladesh
+        serverName = 'Server 5';
+      }
+      
       // Gọi API DailyOTP GET /rent-number
       try {
         const response = await axios.get(`${DAILYOTP_BASE_URL}/rent-number`, {
           params: {
-            appBrand: 'Google / Gmail / Youtube',
-            countryCode: 'BD',
-            serverName: 'Server 5',
+            appBrand: appBrand,
+            countryCode: countryCode,
+            serverName: serverName,
             api_key: DAILYOTP_API_KEY
           },
           timeout: 15000
@@ -260,7 +274,7 @@ app.get('/api/check', async (req, res) => {
 
     console.log(`[CHECK OTP] Provider: ${provider}, RequestId: ${requestId}`);
 
-    if (provider === 'dailyotp') {
+    if (provider === 'dailyotp' || provider === 'dailyotp-bangladesh' || provider === 'dailyotp-cambodia') {
       // Gọi API DailyOTP GET /get-messages
       try {
         const response = await axios.get(`${DAILYOTP_BASE_URL}/get-messages`, {
