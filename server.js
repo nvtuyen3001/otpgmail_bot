@@ -55,7 +55,7 @@ app.post('/api/request', async (req, res) => {
     
     console.log(`[REQUEST] Provider: ${provider}, ServiceId: ${serviceId}`);
 
-    if (provider === 'dailyotp' || provider === 'dailyotp-bangladesh' || provider === 'dailyotp-cambodia' || provider === 'dailyotp-cambodia-s3') {
+    if (provider === 'dailyotp' || provider === 'dailyotp-bangladesh' || provider === 'dailyotp-cambodia-s3') {
       // Kiểm tra token
       if (!DAILYOTP_API_KEY) {
         return res.json({
@@ -71,10 +71,6 @@ app.post('/api/request', async (req, res) => {
         appBrand = 'Google';
         countryCode = 'KH'; // Cambodia Server 3
         serverName = 'Server 3';
-      } else if (provider === 'dailyotp-cambodia') {
-        appBrand = 'Google / Gmail / Youtube';
-        countryCode = 'KH'; // Cambodia Server 5
-        serverName = 'Server 5';
       } else {
         // Default: Bangladesh (dailyotp hoặc dailyotp-bangladesh)
         appBrand = 'Google / Gmail / Youtube';
@@ -278,7 +274,7 @@ app.get('/api/check', async (req, res) => {
 
     console.log(`[CHECK OTP] Provider: ${provider}, RequestId: ${requestId}`);
 
-    if (provider === 'dailyotp' || provider === 'dailyotp-bangladesh' || provider === 'dailyotp-cambodia' || provider === 'dailyotp-cambodia-s3') {
+    if (provider === 'dailyotp' || provider === 'dailyotp-bangladesh' || provider === 'dailyotp-cambodia-s3') {
       // Gọi API DailyOTP GET /get-messages
       try {
         const response = await axios.get(`${DAILYOTP_BASE_URL}/get-messages`, {
