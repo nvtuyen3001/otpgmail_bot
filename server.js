@@ -451,6 +451,97 @@ app.get('/api/check', async (req, res) => {
   }
 });
 
+// Route: Lấy OTP từ SMS222.us
+app.post('/api/fetch-sms222', async (req, res) => {
+  try {
+    const { url } = req.body;
+    
+    if (!url || !url.includes('sms222.us')) {
+      return res.json({
+        success: false,
+        message: 'URL không hợp lệ'
+      });
+    }
+    
+    console.log(`[SMS222] Fetching OTP from: ${url}`);
+    
+    // Fetch HTML từ URL
+    const response = await axios.get(url, {
+      timeout: 15000,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      }
+    });
+    
+    const htmlContent = response.data;
+    console.log(`[SMS222] HTML Content Length: ${htmlContent.length}`);
+    
+    // Extract OTP từ nội dung
+    // Pattern 1: G-123456 (Google verification code)
+    const googlePattern = /G-(\d{6})/i;
+    let match = htmlContent.match(googlePattern);
+    
+    if (match && match[1]) {
+      const otp = match[1];
+      console.log(`[SMS222] ✅ OTP extracted: ${otp}`);
+      
+      return res.json({
+        success: true,
+        otp: otp,
+        phone: null,
+        source: 'sms222.us'
+      });
+    }
+    
+    // Pattern 2: 6 chữ số liên tiếp (general OTP)
+    const generalPattern = /\b(\d{6})\b/;
+    match = htmlContent.match(generalPattern);
+    
+    if (match && match[1]) {
+      const otp = match[1];
+      console.log(`[SMS222] ✅ OTP extracted (general): ${otp}`);
+      
+      return res.json({
+        success: true,
+        otp: otp,
+        phone: null,
+        source: 'sms222.us'
+      });
+    }
+    
+    // Pattern 3: Verification code: 123456
+    const verifyPattern = /(?:verification code|verify code|code|otp)[\s:]*(\d{4,8})/i;
+    match = htmlContent.match(verifyPattern);
+    
+    if (match && match[1]) {
+      const otp = match[1];
+      console.log(`[SMS222] ✅ OTP extracted (verification): ${otp}`);
+      
+      return res.json({
+        success: true,
+        otp: otp,
+        phone: null,
+        source: 'sms222.us'
+      });
+    }
+    
+    console.log(`[SMS222] ❌ No OTP found in content`);
+    console.log(`[SMS222] First 500 chars:`, htmlContent.substring(0, 500));
+    
+    return res.json({
+      success: false,
+      message: 'Không tìm thấy mã OTP trong nội dung'
+    });
+    
+  } catch (error) {
+    console.error('[SMS222] Error:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi khi lấy OTP: ' + error.message
+    });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`🚀 Server đang chạy tại http://localhost:${PORT}`);
 });

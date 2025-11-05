@@ -135,20 +135,28 @@
         .otp-code {
             font-weight: 600;
             color: #00a8ff;
-            font-size: 15px;
+            font-size: 16px;
             cursor: pointer;
             transition: all 0.2s;
-            padding: 2px 6px;
-            border-radius: 4px;
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: 2px solid #00a8ff;
+            background: #f0f8ff;
+            display: inline-block;
+            min-width: 80px;
+            text-align: center;
         }
         
         .otp-code:hover {
             background: #e3f2fd;
             color: #0066cc;
+            border-color: #0066cc;
+            transform: scale(1.05);
         }
         
         .otp-code:active {
             background: #bbdefb;
+            transform: scale(0.98);
         }
         
         .phone-number {
@@ -156,17 +164,20 @@
             font-weight: 500;
             cursor: pointer;
             transition: all 0.2s;
+            padding: 6px 12px;
+            border-radius: 4px;
+            display: inline-block;
         }
         
         .phone-number:hover {
             background: #e3f2fd;
             color: #0066cc;
-            padding: 2px 6px;
-            border-radius: 4px;
+            transform: scale(1.02);
         }
         
         .phone-number:active {
             background: #bbdefb;
+            transform: scale(0.98);
         }
         
         .empty-state {
@@ -305,7 +316,13 @@
                 <option value="viotp-3">VIOTP - Gmail (Vinaphone VN)</option>
                 <option value="dailyotp-bangladesh">DailyOTP - Gmail/YouTube (Bangladesh Server 5)</option>
                 <option value="dailyotp-cambodia-s3">DailyOTP - Google (Cambodia Server 3 - $0.165)</option>
+                <option value="sms222">SMS222.us - Web OTP Link</option>
             </select>
+        </div>
+
+        <div class="sms-link-input" id="smsLinkContainer" style="display: none; margin-top: 15px;">
+            <label for="smsLink">Nhập link SMS222.us (mỗi link một dòng):</label>
+            <textarea id="smsLink" placeholder="https://sms222.us?token=...&#10;https://sms222.us?token=...&#10;https://sms222.us?token=..." style="width: 100%; max-width: 600px; padding: 10px 15px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; margin-top: 8px; min-height: 120px; font-family: 'Courier New', monospace; resize: vertical;"></textarea>
         </div>
 
         <button class="btn-rent" onclick="rentNumber()">Thuê số</button>
@@ -342,6 +359,20 @@
         let orders = [];
         let checkIntervals = {};
         let orderCounter = 0;
+
+        // Xử lý thay đổi dịch vụ
+        document.addEventListener('DOMContentLoaded', function() {
+            const serviceSelect = document.getElementById('service');
+            const smsLinkContainer = document.getElementById('smsLinkContainer');
+            
+            serviceSelect.addEventListener('change', function() {
+                if (this.value === 'sms222') {
+                    smsLinkContainer.style.display = 'block';
+                } else {
+                    smsLinkContainer.style.display = 'none';
+                }
+            });
+        });
 
         // Hàm lấy số dư
         async function fetchBalance() {
@@ -438,12 +469,20 @@
 
         // Hàm copy số điện thoại
         function copyPhoneNumber(phone, provider, event) {
-            const formattedPhone = formatPhoneForCopy(phone, provider);
+            let textToCopy;
+            
+            // Nếu là SMS222, copy link gốc
+            if (provider === 'sms222') {
+                textToCopy = phone; // phone chứa link đầy đủ
+            } else {
+                textToCopy = formatPhoneForCopy(phone, provider);
+            }
             
             // Copy vào clipboard
-            navigator.clipboard.writeText(formattedPhone).then(() => {
+            navigator.clipboard.writeText(textToCopy).then(() => {
                 // Hiển thị thông báo
-                showNotification(`Đã copy: ${formattedPhone}`, 'success');
+                const displayText = provider === 'sms222' ? 'link' : textToCopy;
+                showNotification(`Đã copy ${displayText}`, 'success');
                 
                 // Hiệu ứng visual
                 const element = event.target;
@@ -484,6 +523,128 @@
             });
         }
 
+        // Hàm xử lý SMS222
+        async function handleSMS222() {
+            const smsLinkInput = document.getElementById('smsLink').value.trim();
+            
+            if (!smsLinkInput) {
+                showNotification('Vui lòng nhập link SMS222.us', 'error');
+                return;
+            }
+            
+            // Tách các link theo dòng
+            const links = smsLinkInput.split('\n')
+                .map(link => link.trim())
+                .filter(link => link.length > 0);
+            
+            if (links.length === 0) {
+                showNotification('Không tìm thấy link nào', 'error');
+                return;
+            }
+            
+            // Validate tất cả links
+            const invalidLinks = links.filter(link => !link.includes('sms222.us'));
+            if (invalidLinks.length > 0) {
+                showNotification(`Link không hợp lệ: ${invalidLinks[0]}`, 'error');
+                return;
+            }
+            
+            showNotification(`Đang xử lý ${links.length} link...`, 'info');
+            
+            let successCount = 0;
+            let failCount = 0;
+            
+            // Xử lý từng link
+            for (let i = 0; i < links.length; i++) {
+                const link = links[i];
+                
+                try {
+                    console.log(`[SMS222] Processing link ${i + 1}/${links.length}: ${link}`);
+                    
+                    const response = await fetch(`${API_BASE_URL}/api/fetch-sms222`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ url: link })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success && data.otp) {
+                        const order = {
+                            requestId: 'sms222-' + Date.now() + '-' + i,
+                            provider: 'sms222',
+                            service: 'SMS222.us',
+                            phone: link, // Lưu link đầy đủ
+                            fullLink: link, // Lưu link để copy
+                            otp: data.otp,
+                            time: formatTime(new Date()),
+                            statusText: 'Hoàn thành',
+                            statusClass: 'completed'
+                        };
+                        
+                        orders.push(order);
+                        successCount++;
+                    } else {
+                        // Thêm vào bảng với trạng thái lỗi
+                        const order = {
+                            requestId: 'sms222-' + Date.now() + '-' + i,
+                            provider: 'sms222',
+                            service: 'SMS222.us',
+                            phone: link,
+                            fullLink: link,
+                            otp: null,
+                            time: formatTime(new Date()),
+                            statusText: 'Không tìm thấy OTP',
+                            statusClass: 'expired'
+                        };
+                        
+                        orders.push(order);
+                        failCount++;
+                    }
+                    
+                    updateTable();
+                    
+                    // Delay nhỏ giữa các request để tránh spam
+                    if (i < links.length - 1) {
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                    }
+                    
+                } catch (error) {
+                    console.error(`[SMS222] Error processing link ${i + 1}:`, error);
+                    
+                    // Thêm vào bảng với trạng thái lỗi
+                    const order = {
+                        requestId: 'sms222-' + Date.now() + '-' + i,
+                        provider: 'sms222',
+                        service: 'SMS222.us',
+                        phone: link,
+                        fullLink: link,
+                        otp: null,
+                        time: formatTime(new Date()),
+                        statusText: 'Lỗi kết nối',
+                        statusClass: 'expired'
+                    };
+                    
+                    orders.push(order);
+                    failCount++;
+                    updateTable();
+                }
+            }
+            
+            // Hiển thị kết quả tổng hợp
+            if (successCount > 0) {
+                showNotification(`✅ Thành công: ${successCount}/${links.length} link`, 'success');
+            }
+            if (failCount > 0) {
+                showNotification(`❌ Thất bại: ${failCount}/${links.length} link`, 'error');
+            }
+            
+            // Clear input
+            document.getElementById('smsLink').value = '';
+        }
+
         // Hàm cập nhật bảng
         function updateTable() {
             const tbody = document.getElementById('orderTable');
@@ -493,23 +654,42 @@
                 return;
             }
 
-            tbody.innerHTML = orders.map((order, index) => `
+            tbody.innerHTML = orders.map((order, index) => {
+                let phoneDisplay = order.phone;
+                let phoneTooltip = 'Click để copy';
+                
+                // Nếu là SMS222, hiển thị link rút gọn
+                if (order.provider === 'sms222' && order.fullLink) {
+                    const urlObj = new URL(order.fullLink);
+                    const token = urlObj.searchParams.get('token') || 'unknown';
+                    phoneDisplay = `...${token.substring(token.length - 15)}`;
+                    phoneTooltip = `Click để copy: ${order.fullLink}`;
+                }
+                
+                return `
         <tr>
           <td>${index + 1}</td>
           <td>${order.service}</td>
-          <td class="phone-number" onclick="copyPhoneNumber('${order.phone}', '${order.provider}', event)" title="Click để copy">${order.phone}</td>
+          <td class="phone-number" onclick="copyPhoneNumber('${order.phone}', '${order.provider}', event)" title="${phoneTooltip}">${phoneDisplay}</td>
           <td>${order.otp ? '<span class="otp-code" onclick="copyOTP(\'' + order.otp + '\', event)" title="Click để copy OTP">' + order.otp + '</span>' : '-'}</td>
           <td>${order.time}</td>
           <td>
             <span class="status ${order.statusClass}">${order.statusText}</span>
           </td>
         </tr>
-      `).join('');
+      `;
+            }).join('');
         }
 
         // Hàm thuê số
         async function rentNumber() {
             const serviceValue = document.getElementById('service').value;
+
+            // Xử lý SMS222 riêng
+            if (serviceValue === 'sms222') {
+                await handleSMS222();
+                return;
+            }
 
             // Parse provider và serviceId
             let provider, serviceId;
