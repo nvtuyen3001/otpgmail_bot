@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dịch vụ thuê số OTP</title>
+    <title>neyuT OTP</title>
     <style>
         * {
             margin: 0;
@@ -245,87 +245,31 @@
             animation: slideOut 0.3s ease-in forwards;
         }
         
-        .balance-container {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: white;
-            padding: 15px 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            font-size: 14px;
-            min-width: 200px;
-            z-index: 999;
-        }
-        
-        .balance-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 8px;
-        }
-        
-        .balance-item:last-child {
-            margin-bottom: 0;
-        }
-        
-        .balance-label {
-            font-weight: 500;
-            color: #495057;
-        }
-        
-        .balance-value {
-            font-weight: 600;
-            color: #00a8ff;
-            font-family: 'Courier New', monospace;
-        }
-        
-        .balance-error {
-            color: #dc3545;
-            font-size: 12px;
-        }
-        
-        .balance-loading {
-            color: #6c757d;
-            font-size: 12px;
-        }
     </style>
 </head>
 
 <body>
     <div class="toast-container" id="toastContainer"></div>
-    
-    <div class="balance-container" id="balanceContainer">
-        <div class="balance-item">
-            <span class="balance-label">DailyOTP:</span>
-            <span class="balance-value" id="dailyotpBalance">Loading...</span>
-        </div>
-        <div class="balance-item">
-            <span class="balance-label">VIOTP:</span>
-            <span class="balance-value" id="viotpBalance">N/A</span>
-        </div>
-    </div>
 
     <div class="container">
-        <h1>Dịch vụ</h1>
+        <h1>neyuT OTP</h1>
 
-        <div class="service-selector">
-            <label for="service">Chọn dịch vụ:</label>
-            <select id="service">
-                <option value="khotaikhoan-2">KhoTaiKhoan - Gmail/Google</option>
-                <option value="viotp-3">VIOTP - Gmail (Vinaphone VN)</option>
-                <option value="dailyotp-bangladesh">DailyOTP - Gmail/YouTube (Bangladesh Server 5)</option>
-                <option value="dailyotp-cambodia-s3">DailyOTP - Google (Cambodia Server 3 - $0.165)</option>
-                <option value="sms222">SMS222.us - Web OTP Link</option>
-            </select>
+        <div class="phone-manager" style="margin-bottom: 20px;">
+            <label style="display: block; margin-bottom: 8px; font-weight: 500; font-size: 14px;">Quản lý danh sách số:</label>
+            <textarea id="phoneListInput" placeholder="Nhập danh sách số (mỗi dòng một số)" style="width: 100%; max-width: 600px; padding: 10px 15px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; margin-top: 8px; min-height: 100px; font-family: 'Courier New', monospace; resize: vertical;"></textarea>
+            <div style="margin-top: 10px;">
+                <button class="btn-rent" onclick="savePhoneList()" style="background: #28a745;">Lưu danh sách</button>
+                <button class="btn-rent" onclick="viewPhoneList()" style="background: #007bff; margin-left: 10px;">Xem danh sách</button>
+                <button class="btn-rent" onclick="clearPhoneList()" style="background: #dc3545; margin-left: 10px;">Xóa danh sách</button>
+            </div>
         </div>
 
-        <div class="sms-link-input" id="smsLinkContainer" style="display: none; margin-top: 15px;">
-            <label for="smsLink">Nhập link SMS222.us (mỗi link một dòng):</label>
-            <textarea id="smsLink" placeholder="https://sms222.us?token=...&#10;https://sms222.us?token=...&#10;https://sms222.us?token=..." style="width: 100%; max-width: 600px; padding: 10px 15px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; margin-top: 8px; min-height: 120px; font-family: 'Courier New', monospace; resize: vertical;"></textarea>
+        <div class="phone-input" style="margin-top: 20px;">
+            <label for="phoneNumber" style="display: block; margin-bottom: 8px; font-weight: 500; font-size: 14px;">Nhập số điện thoại (mỗi dòng một số):</label>
+            <textarea id="phoneNumber" placeholder="Ví dụ:&#10;6159096093&#10;5077789082&#10;6627555446" style="width: 100%; max-width: 400px; padding: 10px 15px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; font-family: 'Courier New', monospace; min-height: 120px; resize: vertical;"></textarea>
         </div>
 
-        <button class="btn-rent" onclick="rentNumber()">Thuê số</button>
+        <button class="btn-rent" onclick="rentNumber()">Lấy OTP</button>
 
         <div class="table-container">
             <table>
@@ -350,76 +294,154 @@
 
     <script>
         // API Configuration
-        // Đổi URL này khi deploy production
         const API_BASE_URL = window.location.hostname === 'localhost' ?
-            '' // Local: sử dụng same origin
+            '' // Local
             :
-            'https://otpgmail-bot.onrender.com'; // Production: Render backend
+            'https://otpgmail-bot.onrender.com'; // Production
 
         let orders = [];
-        let checkIntervals = {};
-        let orderCounter = 0;
+        let phoneDatabase = {}; // Lưu mapping số -> link
+        
+        // Thông tin xác thực (mã hóa)
+        const AUTH_USER = 'bnZ0MzAwMQ=='; // nvt3001 (base64)
+        const AUTH_PASS = 'bmV5dVRAMjAwMw=='; // neyuT@2003 (base64)
 
-        // Xử lý thay đổi dịch vụ
+        // Load danh sách số từ localStorage khi trang load
         document.addEventListener('DOMContentLoaded', function() {
-            const serviceSelect = document.getElementById('service');
-            const smsLinkContainer = document.getElementById('smsLinkContainer');
-            
-            serviceSelect.addEventListener('change', function() {
-                if (this.value === 'sms222') {
-                    smsLinkContainer.style.display = 'block';
-                } else {
-                    smsLinkContainer.style.display = 'none';
-                }
-            });
+            loadPhoneList();
         });
 
-        // Hàm lấy số dư
-        async function fetchBalance() {
-            try {
-                const response = await fetch(`${API_BASE_URL}/api/balance`);
-                const data = await response.json();
-
-                console.log('[Balance] Response:', data);
-
-                if (data.success && data.balances) {
-                    // DailyOTP balance
-                    const dailyotpEl = document.getElementById('dailyotpBalance');
-                    if (data.balances.dailyotp && !data.balances.dailyotp.error) {
-                        dailyotpEl.textContent = `$${data.balances.dailyotp.balance.toFixed(2)}`;
-                        dailyotpEl.classList.remove('balance-error');
-                        dailyotpEl.title = 'DailyOTP balance';
+        // Hàm lưu danh sách số
+        function savePhoneList() {
+            // Yêu cầu xác thực
+            if (!authenticate()) {
+                return;
+            }
+            
+            const input = document.getElementById('phoneListInput').value.trim();
+            
+            if (!input) {
+                showNotification('Vui lòng nhập danh sách số', 'error');
+                return;
+            }
+            
+            const lines = input.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+            const newDatabase = {};
+            let validCount = 0;
+            let invalidCount = 0;
+            
+            for (const line of lines) {
+                // Format: số-link
+                const parts = line.split('-');
+                if (parts.length >= 2) {
+                    const phone = parts[0].trim();
+                    const link = parts.slice(1).join('-').trim(); // Ghép lại phần còn lại (vì link có thể chứa dấu -)
+                    
+                    if (phone && link && link.includes('http')) {
+                        newDatabase[phone] = link;
+                        validCount++;
                     } else {
-                        const errorMsg = data.balances.dailyotp?.error_message || 'API Error';
-                        dailyotpEl.textContent = 'Error';
-                        dailyotpEl.classList.add('balance-error');
-                        dailyotpEl.title = errorMsg;
-                        console.error('[Balance] DailyOTP Error:', errorMsg);
+                        invalidCount++;
                     }
-
-                    // VIOTP balance
-                    const viotpEl = document.getElementById('viotpBalance');
-                    if (data.balances.viotp && data.balances.viotp.available) {
-                        viotpEl.textContent = `$${data.balances.viotp.balance.toFixed(2)}`;
-                    } else {
-                        viotpEl.textContent = 'N/A';
-                    }
+                } else {
+                    invalidCount++;
                 }
-            } catch (error) {
-                console.error('[Balance] Fetch Error:', error);
-                const dailyotpEl = document.getElementById('dailyotpBalance');
-                dailyotpEl.textContent = 'Network Error';
-                dailyotpEl.classList.add('balance-error');
-                dailyotpEl.title = error.message;
-                document.getElementById('viotpBalance').textContent = 'Error';
+            }
+            
+            if (validCount > 0) {
+                phoneDatabase = newDatabase;
+                
+                // Mã hóa dữ liệu trước khi lưu
+                const encoded = btoa(JSON.stringify(phoneDatabase));
+                localStorage.setItem('phoneDatabase', encoded);
+                
+                // Xóa nội dung textarea sau khi lưu (bảo mật)
+                document.getElementById('phoneListInput').value = '';
+                
+                showNotification(`✅ Đã lưu ${validCount} số${invalidCount > 0 ? ` (${invalidCount} dòng không hợp lệ)` : ''}`, 'success');
+            } else {
+                showNotification('Không có dòng nào hợp lệ. Format: số-link', 'error');
             }
         }
 
-        // Lấy số dư khi trang load
-        fetchBalance();
-        
-        // Refresh số dư mỗi 30 giây
-        setInterval(fetchBalance, 30000);
+        // Hàm load danh sách số từ localStorage
+        function loadPhoneList() {
+            try {
+                const saved = localStorage.getItem('phoneDatabase');
+                if (saved) {
+                    // Giải mã dữ liệu
+                    try {
+                        phoneDatabase = JSON.parse(atob(saved));
+                    } catch (decodeError) {
+                        // Nếu không giải mã được, thử parse trực tiếp (backward compatibility)
+                        phoneDatabase = JSON.parse(saved);
+                    }
+                    
+                    // KHÔNG hiển thị trong textarea (bảo mật)
+                    // Chỉ hiển thị placeholder
+                    document.getElementById('phoneListInput').placeholder = `Đã lưu ${Object.keys(phoneDatabase).length} số trong bộ nhớ (đã mã hóa)`;
+                    
+                    showNotification(`Đã load ${Object.keys(phoneDatabase).length} số từ bộ nhớ`, 'info');
+                }
+            } catch (error) {
+                // Silent error
+            }
+        }
+
+        // Hàm xác thực
+        function authenticate() {
+            const username = prompt('Nhập tên đăng nhập:');
+            if (!username) return false;
+            
+            const password = prompt('Nhập mật khẩu:');
+            if (!password) return false;
+            
+            // Mã hóa và so sánh
+            const encodedUser = btoa(username);
+            const encodedPass = btoa(password);
+            
+            if (encodedUser === AUTH_USER && encodedPass === AUTH_PASS) {
+                return true;
+            } else {
+                showNotification('❌ Sai tên đăng nhập hoặc mật khẩu', 'error');
+                return false;
+            }
+        }
+
+        // Hàm xem danh sách (yêu cầu xác thực)
+        function viewPhoneList() {
+            if (Object.keys(phoneDatabase).length === 0) {
+                showNotification('Chưa có danh sách nào được lưu', 'info');
+                return;
+            }
+            
+            // Yêu cầu xác thực
+            if (!authenticate()) {
+                return;
+            }
+            
+            // Hiển thị danh sách trong textarea
+            const lines = Object.entries(phoneDatabase).map(([phone, link]) => `${phone}-${link}`);
+            document.getElementById('phoneListInput').value = lines.join('\n');
+            showNotification(`✅ Hiển thị ${Object.keys(phoneDatabase).length} số`, 'success');
+        }
+
+        // Hàm xóa danh sách
+        function clearPhoneList() {
+            // Yêu cầu xác thực
+            if (!authenticate()) {
+                return;
+            }
+            
+            if (confirm('Bạn có chắc muốn xóa toàn bộ danh sách số?')) {
+                phoneDatabase = {};
+                localStorage.removeItem('phoneDatabase');
+                document.getElementById('phoneListInput').value = '';
+                document.getElementById('phoneListInput').placeholder = 'Nhập danh sách số (mỗi dòng một số)';
+                showNotification('Đã xóa danh sách số', 'info');
+            }
+        }
+
 
         // Hàm hiển thị thông báo
         function showNotification(msg, type = 'error') {
@@ -450,41 +472,12 @@
             return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
         }
 
-        // Hàm format số điện thoại để copy
-        function formatPhoneForCopy(phone, provider) {
-            // DailyOTP (Bangladesh, Cambodia): Thêm + ở đầu (nếu chưa có)
-            if (provider === 'dailyotp' || provider === 'dailyotp-bangladesh' || provider === 'dailyotp-cambodia-s3') {
-                return phone.startsWith('+') ? phone : '+' + phone;
-            }
-            // VIOTP: Thêm +84 (loại bỏ số 0 đầu nếu có)
-            else if (provider === 'viotp') {
-                const cleanPhone = phone.replace(/^0+/, ''); // Bỏ số 0 đầu
-                return '+84' + cleanPhone;
-            }
-            // KhoTaiKhoan: giữ nguyên
-            else {
-                return phone;
-            }
-        }
-
         // Hàm copy số điện thoại
         function copyPhoneNumber(phone, provider, event) {
-            let textToCopy;
-            
-            // Nếu là SMS222, copy link gốc
-            if (provider === 'sms222') {
-                textToCopy = phone; // phone chứa link đầy đủ
-            } else {
-                textToCopy = formatPhoneForCopy(phone, provider);
-            }
-            
-            // Copy vào clipboard
-            navigator.clipboard.writeText(textToCopy).then(() => {
-                // Hiển thị thông báo
-                const displayText = provider === 'sms222' ? 'link' : textToCopy;
-                showNotification(`Đã copy ${displayText}`, 'success');
+            // Copy số điện thoại
+            navigator.clipboard.writeText(phone).then(() => {
+                showNotification(`Đã copy số: ${phone}`, 'success');
                 
-                // Hiệu ứng visual
                 const element = event.target;
                 const originalText = element.textContent;
                 element.textContent = '✓ Copied!';
@@ -523,126 +516,84 @@
             });
         }
 
-        // Hàm xử lý SMS222
-        async function handleSMS222() {
-            const smsLinkInput = document.getElementById('smsLink').value.trim();
-            
-            if (!smsLinkInput) {
-                showNotification('Vui lòng nhập link SMS222.us', 'error');
-                return;
-            }
-            
-            // Tách các link theo dòng
-            const links = smsLinkInput.split('\n')
-                .map(link => link.trim())
-                .filter(link => link.length > 0);
-            
-            if (links.length === 0) {
-                showNotification('Không tìm thấy link nào', 'error');
-                return;
-            }
-            
-            // Validate tất cả links
-            const invalidLinks = links.filter(link => !link.includes('sms222.us'));
-            if (invalidLinks.length > 0) {
-                showNotification(`Link không hợp lệ: ${invalidLinks[0]}`, 'error');
-                return;
-            }
-            
-            showNotification(`Đang xử lý ${links.length} link...`, 'info');
-            
-            let successCount = 0;
-            let failCount = 0;
-            
-            // Xử lý từng link
-            for (let i = 0; i < links.length; i++) {
-                const link = links[i];
+        // Hàm xử lý lấy OTP từ số điện thoại
+        async function fetchOTPByPhone(phone, link, showNotif = true) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/fetch-sms222`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ url: link })
+                });
                 
-                try {
-                    console.log(`[SMS222] Processing link ${i + 1}/${links.length}: ${link}`);
+                const data = await response.json();
+                
+                if (data.success && data.otp) {
+                    const order = {
+                        requestId: 'otp-' + Date.now(),
+                        provider: 'web',
+                        service: 'Web OTP',
+                        phone: phone,
+                        fullLink: link,
+                        otp: data.otp,
+                        time: formatTime(new Date()),
+                        statusText: 'Hoàn thành',
+                        statusClass: 'completed'
+                    };
                     
-                    const response = await fetch(`${API_BASE_URL}/api/fetch-sms222`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ url: link })
-                    });
-                    
-                    const data = await response.json();
-                    
-                    if (data.success && data.otp) {
-                        const order = {
-                            requestId: 'sms222-' + Date.now() + '-' + i,
-                            provider: 'sms222',
-                            service: 'SMS222.us',
-                            phone: link, // Lưu link đầy đủ
-                            fullLink: link, // Lưu link để copy
-                            otp: data.otp,
-                            time: formatTime(new Date()),
-                            statusText: 'Hoàn thành',
-                            statusClass: 'completed'
-                        };
-                        
-                        orders.push(order);
-                        successCount++;
-                    } else {
-                        // Thêm vào bảng với trạng thái lỗi
-                        const order = {
-                            requestId: 'sms222-' + Date.now() + '-' + i,
-                            provider: 'sms222',
-                            service: 'SMS222.us',
-                            phone: link,
-                            fullLink: link,
-                            otp: null,
-                            time: formatTime(new Date()),
-                            statusText: 'Không tìm thấy OTP',
-                            statusClass: 'expired'
-                        };
-                        
-                        orders.push(order);
-                        failCount++;
-                    }
-                    
+                    orders.push(order);
                     updateTable();
                     
-                    // Delay nhỏ giữa các request để tránh spam
-                    if (i < links.length - 1) {
-                        await new Promise(resolve => setTimeout(resolve, 500));
+                    if (showNotif) {
+                        showNotification(`✅ OTP nhận được: ${data.otp}`, 'success');
                     }
                     
-                } catch (error) {
-                    console.error(`[SMS222] Error processing link ${i + 1}:`, error);
-                    
-                    // Thêm vào bảng với trạng thái lỗi
+                    return true;
+                } else {
                     const order = {
-                        requestId: 'sms222-' + Date.now() + '-' + i,
-                        provider: 'sms222',
-                        service: 'SMS222.us',
-                        phone: link,
+                        requestId: 'otp-' + Date.now(),
+                        provider: 'web',
+                        service: 'Web OTP',
+                        phone: phone,
                         fullLink: link,
                         otp: null,
                         time: formatTime(new Date()),
-                        statusText: 'Lỗi kết nối',
+                        statusText: 'Không tìm thấy OTP',
                         statusClass: 'expired'
                     };
                     
                     orders.push(order);
-                    failCount++;
                     updateTable();
+                    
+                    if (showNotif) {
+                        showNotification('Không tìm thấy OTP', 'error');
+                    }
+                    
+                    return false;
                 }
+            } catch (error) {
+                const order = {
+                    requestId: 'otp-' + Date.now(),
+                    provider: 'web',
+                    service: 'Web OTP',
+                    phone: phone,
+                    fullLink: link,
+                    otp: null,
+                    time: formatTime(new Date()),
+                    statusText: 'Lỗi kết nối',
+                    statusClass: 'expired'
+                };
+                
+                orders.push(order);
+                updateTable();
+                
+                if (showNotif) {
+                    showNotification('Lỗi kết nối: ' + error.message, 'error');
+                }
+                
+                return false;
             }
-            
-            // Hiển thị kết quả tổng hợp
-            if (successCount > 0) {
-                showNotification(`✅ Thành công: ${successCount}/${links.length} link`, 'success');
-            }
-            if (failCount > 0) {
-                showNotification(`❌ Thất bại: ${failCount}/${links.length} link`, 'error');
-            }
-            
-            // Clear input
-            document.getElementById('smsLink').value = '';
         }
 
         // Hàm cập nhật bảng
@@ -655,22 +606,11 @@
             }
 
             tbody.innerHTML = orders.map((order, index) => {
-                let phoneDisplay = order.phone;
-                let phoneTooltip = 'Click để copy';
-                
-                // Nếu là SMS222, hiển thị link rút gọn
-                if (order.provider === 'sms222' && order.fullLink) {
-                    const urlObj = new URL(order.fullLink);
-                    const token = urlObj.searchParams.get('token') || 'unknown';
-                    phoneDisplay = `...${token.substring(token.length - 15)}`;
-                    phoneTooltip = `Click để copy: ${order.fullLink}`;
-                }
-                
                 return `
         <tr>
           <td>${index + 1}</td>
           <td>${order.service}</td>
-          <td class="phone-number" onclick="copyPhoneNumber('${order.phone}', '${order.provider}', event)" title="${phoneTooltip}">${phoneDisplay}</td>
+          <td class="phone-number" onclick="copyPhoneNumber('${order.phone}', '${order.provider}', event)" title="Click để copy số: ${order.phone}">${order.phone}</td>
           <td>${order.otp ? '<span class="otp-code" onclick="copyOTP(\'' + order.otp + '\', event)" title="Click để copy OTP">' + order.otp + '</span>' : '-'}</td>
           <td>${order.time}</td>
           <td>
@@ -681,173 +621,71 @@
             }).join('');
         }
 
-        // Hàm thuê số
+        // Hàm lấy OTP
         async function rentNumber() {
-            const serviceValue = document.getElementById('service').value;
-
-            // Xử lý SMS222 riêng
-            if (serviceValue === 'sms222') {
-                await handleSMS222();
+            const phoneInput = document.getElementById('phoneNumber').value.trim();
+            
+            if (!phoneInput) {
+                showNotification('Vui lòng nhập số điện thoại', 'error');
                 return;
             }
-
-            // Parse provider và serviceId
-            let provider, serviceId;
             
-            // DailyOTP có thể có dấu - trong tên (dailyotp-cambodia-s3)
-            if (serviceValue.startsWith('dailyotp')) {
-                provider = serviceValue; // Giữ nguyên toàn bộ
-                serviceId = 'gmail'; // Dummy value
-            } else {
-                // Các provider khác: "viotp-7" hoặc "khotaikhoan-2"
-                const parts = serviceValue.split('-');
-                provider = parts[0];
-                serviceId = parts[1];
+            // Tách các số theo dòng
+            const phones = phoneInput.split('\n')
+                .map(phone => phone.trim())
+                .filter(phone => phone.length > 0);
+            
+            if (phones.length === 0) {
+                showNotification('Không tìm thấy số nào', 'error');
+                return;
             }
-
-            console.log(`[Frontend] Renting number - Provider: ${provider}, ServiceId: ${serviceId}`);
-
-            try {
-                const response = await fetch(`${API_BASE_URL}/api/request`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        serviceId,
-                        provider
-                    })
-                });
-
-                const data = await response.json();
-
-                console.log('[Frontend] Rent response:', data);
-
-                if (data.success) {
-                    let serviceName;
-                    if (provider === 'viotp') {
-                        serviceName = 'VIOTP - Gmail (Vinaphone)';
-                    } else if (provider === 'dailyotp-cambodia-s3') {
-                        serviceName = 'DailyOTP - Google (Cambodia S3)';
-                    } else if (provider === 'dailyotp' || provider === 'dailyotp-bangladesh') {
-                        serviceName = 'DailyOTP - Gmail/YouTube (Bangladesh)';
+            
+            // Kiểm tra tất cả số có trong database không
+            const invalidPhones = phones.filter(phone => !phoneDatabase[phone]);
+            if (invalidPhones.length > 0) {
+                showNotification(`Số ${invalidPhones[0]} không có trong danh sách`, 'error');
+                return;
+            }
+            
+            showNotification(`Đang lấy OTP cho ${phones.length} số...`, 'info');
+            
+            let successCount = 0;
+            let failCount = 0;
+            
+            // Xử lý từng số
+            for (let i = 0; i < phones.length; i++) {
+                const phone = phones[i];
+                const link = phoneDatabase[phone];
+                
+                try {
+                    const result = await fetchOTPByPhone(phone, link, false); // false = không hiển thị notification
+                    if (result) {
+                        successCount++;
                     } else {
-                        serviceName = 'KhoTaiKhoan - Gmail';
+                        failCount++;
                     }
-
-                    const order = {
-                        requestId: data.requestId,
-                        provider: data.provider,
-                        service: serviceName,
-                        phone: data.phone,
-                        otp: null,
-                        time: formatTime(new Date()),
-                        statusText: 'Đang chờ OTP',
-                        statusClass: 'waiting'
-                    };
-
-                    orders.push(order);
-                    updateTable();
-
-                    // Bắt đầu kiểm tra OTP mỗi 3 giây
-                    startCheckingOTP(data.requestId, data.provider);
-                } else {
-                    const errorMsg = data.message || data.error || 'Không thể thuê số';
-                    console.error('[Frontend] Rent failed:', data);
-                    showNotification('Lỗi: ' + errorMsg + (data.error_details ? ` (${JSON.stringify(data.error_details)})` : ''));
-                }
-            } catch (error) {
-                console.error('[Frontend] Rent error:', error);
-                showNotification('Lỗi kết nối: ' + error.message);
-            }
-        }
-
-        // Hàm kiểm tra OTP
-        async function checkOTP(requestId, provider) {
-            try {
-                console.log(`[Frontend] Checking OTP for requestId: ${requestId}, provider: ${provider}`);
-
-                const response = await fetch(`${API_BASE_URL}/api/check?requestId=${requestId}&provider=${provider}`);
-                const data = await response.json();
-
-                console.log(`[Frontend] Response:`, data);
-
-                const order = orders.find(o => o.requestId === requestId);
-                if (!order) {
-                    console.log(`[Frontend] Order not found for requestId: ${requestId}`);
-                    return;
-                }
-
-                // Debug: Log đầy đủ response data
-                console.log(`[Frontend] Full response data:`, JSON.stringify(data));
-                console.log(`[Frontend] data.success:`, data.success);
-                console.log(`[Frontend] data.otp_code:`, data.otp_code);
-                console.log(`[Frontend] data.status:`, data.status);
-
-                // Kiểm tra nếu có OTP (code không null và không rỗng)
-                if (data.success && data.otp_code && data.otp_code !== '') {
-                    // Nhận được OTP
-                    console.log(`[Frontend] ✅ OTP received: ${data.otp_code}`);
-                    order.otp = data.otp_code;
-                    order.statusText = 'Hoàn thành';
-                    order.statusClass = 'completed';
-                    updateTable();
-
-                    // Hiển thị thông báo
-                    showNotification(`OTP nhận được: ${data.otp_code}`, 'success');
-
-                    // Dừng kiểm tra
-                    clearInterval(checkIntervals[requestId]);
-                    delete checkIntervals[requestId];
-                } else if (data.status === 'expired') {
-                    // Hết hạn
-                    console.log(`[Frontend] ❌ Expired`);
-                    order.statusText = 'Hết hạn';
-                    order.statusClass = 'expired';
-                    updateTable();
-
-                    // Dừng kiểm tra
-                    clearInterval(checkIntervals[requestId]);
-                    delete checkIntervals[requestId];
-                } else if (data.status === 'pending') {
-                    console.log(`[Frontend] ⏳ Still pending...`);
-                } else {
-                    // Trường hợp khác
-                    console.warn(`[Frontend] ⚠️ Unexpected response:`, data);
-                }
-            } catch (error) {
-                console.error('[Frontend] Lỗi kiểm tra OTP:', error);
-            }
-        }
-
-        // Hàm bắt đầu kiểm tra OTP định kỳ
-        function startCheckingOTP(requestId, provider) {
-            console.log(`[Frontend] Starting polling for requestId: ${requestId}, provider: ${provider}`);
-
-            // Kiểm tra ngay lập tức
-            checkOTP(requestId, provider);
-
-            // Sau đó kiểm tra mỗi 3 giây
-            checkIntervals[requestId] = setInterval(() => {
-                checkOTP(requestId, provider);
-            }, 3000); // Polling mỗi 3 giây
-
-            // Tự động dừng sau 10 phút (nếu không có phản hồi)
-            setTimeout(() => {
-                if (checkIntervals[requestId]) {
-                    console.log(`[Frontend] Timeout reached for requestId: ${requestId}`);
-                    clearInterval(checkIntervals[requestId]);
-                    delete checkIntervals[requestId];
-
-                    const order = orders.find(o => o.requestId === requestId);
-                    if (order && order.statusText === 'Đang chờ OTP') {
-                        order.statusText = 'Hết hạn';
-                        order.statusClass = 'expired';
-                        updateTable();
+                    
+                    // Delay nhỏ giữa các request
+                    if (i < phones.length - 1) {
+                        await new Promise(resolve => setTimeout(resolve, 1000));
                     }
+                } catch (error) {
+                    failCount++;
                 }
-            }, 600000); // 10 phút
+            }
+            
+            // Hiển thị kết quả tổng hợp
+            if (successCount > 0) {
+                showNotification(`✅ Thành công: ${successCount}/${phones.length} số`, 'success');
+            }
+            if (failCount > 0) {
+                showNotification(`❌ Thất bại: ${failCount}/${phones.length} số`, 'error');
+            }
+            
+            // Clear input
+            document.getElementById('phoneNumber').value = '';
         }
+
     </script>
 </body>
 
