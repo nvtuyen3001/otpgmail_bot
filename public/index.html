@@ -1,10 +1,9 @@
 <!DOCTYPE html>
 <html lang="vi">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>neyuT OTP</title>
+    <title>NeyuT OTP Service</title>
     <style>
         * {
             margin: 0;
@@ -34,29 +33,37 @@
             color: #333;
         }
         
-        .service-selector {
+        .header-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        
+        .input-section {
             margin-bottom: 20px;
         }
         
-        .service-selector label {
+        label {
             display: block;
             margin-bottom: 8px;
             font-weight: 500;
             font-size: 14px;
         }
         
-        .service-selector select {
+        textarea {
             width: 100%;
-            max-width: 300px;
+            max-width: 600px;
             padding: 10px 15px;
             border: 1px solid #ddd;
             border-radius: 6px;
             font-size: 14px;
-            background: white;
-            cursor: pointer;
+            min-height: 120px;
+            font-family: 'Courier New', monospace;
+            resize: vertical;
         }
         
-        .btn-rent {
+        .btn {
             background: #00a8ff;
             color: white;
             border: none;
@@ -69,12 +76,20 @@
             transition: background 0.3s;
         }
         
-        .btn-rent:hover {
+        .btn:hover {
             background: #0097e6;
         }
         
-        .btn-rent:active {
+        .btn:active {
             transform: scale(0.98);
+        }
+        
+        .btn-secondary {
+            background: #95a5a6;
+        }
+        
+        .btn-secondary:hover {
+            background: #7f8c8d;
         }
         
         .table-container {
@@ -127,7 +142,7 @@
             color: #155724;
         }
         
-        .status.expired {
+        .status.error {
             background: #f8d7da;
             color: #721c24;
         }
@@ -186,31 +201,27 @@
             color: #6c757d;
         }
         
-        .toast-container {
+        .toast {
             position: fixed;
             top: 20px;
             right: 20px;
-            z-index: 1000;
-        }
-        
-        .toast {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
             border-radius: 6px;
             padding: 15px 20px;
-            margin-bottom: 10px;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
             min-width: 300px;
             max-width: 400px;
             animation: slideIn 0.3s ease-out;
             font-size: 14px;
+            z-index: 1000;
         }
         
-        .toast.success {
-            background: #d4edda;
-            color: #155724;
-            border-color: #c3e6cb;
+        .toast.error {
+            background: #f8d7da;
+            color: #721c24;
+            border-color: #f5c6cb;
         }
         
         .toast.info {
@@ -230,238 +241,75 @@
             }
         }
         
-        @keyframes slideOut {
-            from {
-                transform: translateX(0);
-                opacity: 1;
-            }
-            to {
-                transform: translateX(400px);
-                opacity: 0;
-            }
+        .admin-link {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #34495e;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 14px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            transition: background 0.3s;
         }
         
-        .toast.removing {
-            animation: slideOut 0.3s ease-in forwards;
+        .admin-link:hover {
+            background: #2c3e50;
         }
-        
     </style>
 </head>
-
 <body>
-    <div class="toast-container" id="toastContainer"></div>
-
     <div class="container">
-        <h1>neyuT OTP</h1>
-
-        <div class="phone-manager" style="margin-bottom: 20px;">
-            <label style="display: block; margin-bottom: 8px; font-weight: 500; font-size: 14px;">Quản lý danh sách số:</label>
-            <textarea id="phoneListInput" placeholder="Nhập danh sách số (mỗi dòng một số)" style="width: 100%; max-width: 600px; padding: 10px 15px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; margin-top: 8px; min-height: 100px; font-family: 'Courier New', monospace; resize: vertical;"></textarea>
-            <div style="margin-top: 10px;">
-                <button class="btn-rent" onclick="savePhoneList()" style="background: #28a745;">Lưu danh sách</button>
-                <button class="btn-rent" onclick="viewPhoneList()" style="background: #007bff; margin-left: 10px;">Xem danh sách</button>
-                <button class="btn-rent" onclick="clearPhoneList()" style="background: #dc3545; margin-left: 10px;">Xóa danh sách</button>
-            </div>
+        <div class="header-actions">
+            <h1>NeyuT OTP Service</h1>
         </div>
 
-        <div class="phone-input" style="margin-top: 20px;">
-            <label for="phoneNumber" style="display: block; margin-bottom: 8px; font-weight: 500; font-size: 14px;">Nhập số điện thoại (mỗi dòng một số):</label>
-            <textarea id="phoneNumber" placeholder="Ví dụ:&#10;6159096093&#10;5077789082&#10;6627555446" style="width: 100%; max-width: 400px; padding: 10px 15px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; font-family: 'Courier New', monospace; min-height: 120px; resize: vertical;"></textarea>
+        <div class="input-section">
+            <label for="phoneInput">Enter phone numbers (one per line or comma-separated)</label>
+            <textarea id="phoneInput" placeholder="6159096093&#10;5077789082&#10;..."></textarea>
         </div>
 
-        <button class="btn-rent" onclick="rentNumber()">Lấy OTP</button>
+        <button class="btn" onclick="fetchOTP()">Get OTP</button>
 
         <div class="table-container">
             <table>
                 <thead>
                     <tr>
                         <th>STT</th>
-                        <th>Dịch vụ</th>
-                        <th>Số điện thoại</th>
+                        <th>Phone</th>
                         <th>OTP</th>
-                        <th>Thời gian</th>
-                        <th>Trạng thái</th>
+                        <th>Time</th>
+                        <th>Status</th>
                     </tr>
                 </thead>
-                <tbody id="orderTable">
+                <tbody id="resultTable">
                     <tr>
-                        <td colspan="6" class="empty-state">Chưa có đơn nào. Nhấn "Thuê số" để bắt đầu.</td>
+                        <td colspan="5" class="empty-state">Enter phone numbers and click "Get OTP"</td>
                     </tr>
                 </tbody>
             </table>
         </div>
     </div>
 
+    <a href="admin.html" class="admin-link">Admin</a>
+
     <script>
-        // API Configuration
-        const API_BASE_URL = window.location.hostname === 'localhost' ?
-            '' // Local
-            :
-            'https://otpgmail-bot.onrender.com'; // Production
+        const API_BASE_URL = window.location.hostname === 'localhost' ? '' : 'https://otpgmail-bot.onrender.com';
+        let results = [];
 
-        let orders = [];
-        let phoneDatabase = {}; // Lưu mapping số -> link
-        
-        // Thông tin xác thực (mã hóa)
-        const AUTH_USER = 'bnZ0MzAwMQ=='; // nvt3001 (base64)
-        const AUTH_PASS = 'bmV5dVRAMjAwMw=='; // neyuT@2003 (base64)
-
-        // Load danh sách số từ localStorage khi trang load
-        document.addEventListener('DOMContentLoaded', function() {
-            loadPhoneList();
-        });
-
-        // Hàm lưu danh sách số
-        function savePhoneList() {
-            // Yêu cầu xác thực
-            if (!authenticate()) {
-                return;
-            }
-            
-            const input = document.getElementById('phoneListInput').value.trim();
-            
-            if (!input) {
-                showNotification('Vui lòng nhập danh sách số', 'error');
-                return;
-            }
-            
-            const lines = input.split('\n').map(line => line.trim()).filter(line => line.length > 0);
-            const newDatabase = {};
-            let validCount = 0;
-            let invalidCount = 0;
-            
-            for (const line of lines) {
-                // Format: số-link
-                const parts = line.split('-');
-                if (parts.length >= 2) {
-                    const phone = parts[0].trim();
-                    const link = parts.slice(1).join('-').trim(); // Ghép lại phần còn lại (vì link có thể chứa dấu -)
-                    
-                    if (phone && link && link.includes('http')) {
-                        newDatabase[phone] = link;
-                        validCount++;
-                    } else {
-                        invalidCount++;
-                    }
-                } else {
-                    invalidCount++;
-                }
-            }
-            
-            if (validCount > 0) {
-                phoneDatabase = newDatabase;
-                
-                // Mã hóa dữ liệu trước khi lưu
-                const encoded = btoa(JSON.stringify(phoneDatabase));
-                localStorage.setItem('phoneDatabase', encoded);
-                
-                // Xóa nội dung textarea sau khi lưu (bảo mật)
-                document.getElementById('phoneListInput').value = '';
-                
-                showNotification(`✅ Đã lưu ${validCount} số${invalidCount > 0 ? ` (${invalidCount} dòng không hợp lệ)` : ''}`, 'success');
-            } else {
-                showNotification('Không có dòng nào hợp lệ. Format: số-link', 'error');
-            }
-        }
-
-        // Hàm load danh sách số từ localStorage
-        function loadPhoneList() {
-            try {
-                const saved = localStorage.getItem('phoneDatabase');
-                if (saved) {
-                    // Giải mã dữ liệu
-                    try {
-                        phoneDatabase = JSON.parse(atob(saved));
-                    } catch (decodeError) {
-                        // Nếu không giải mã được, thử parse trực tiếp (backward compatibility)
-                        phoneDatabase = JSON.parse(saved);
-                    }
-                    
-                    // KHÔNG hiển thị trong textarea (bảo mật)
-                    // Chỉ hiển thị placeholder
-                    document.getElementById('phoneListInput').placeholder = `Đã lưu ${Object.keys(phoneDatabase).length} số trong bộ nhớ (đã mã hóa)`;
-                    
-                    showNotification(`Đã load ${Object.keys(phoneDatabase).length} số từ bộ nhớ`, 'info');
-                }
-            } catch (error) {
-                // Silent error
-            }
-        }
-
-        // Hàm xác thực
-        function authenticate() {
-            const username = prompt('Nhập tên đăng nhập:');
-            if (!username) return false;
-            
-            const password = prompt('Nhập mật khẩu:');
-            if (!password) return false;
-            
-            // Mã hóa và so sánh
-            const encodedUser = btoa(username);
-            const encodedPass = btoa(password);
-            
-            if (encodedUser === AUTH_USER && encodedPass === AUTH_PASS) {
-                return true;
-            } else {
-                showNotification('❌ Sai tên đăng nhập hoặc mật khẩu', 'error');
-                return false;
-            }
-        }
-
-        // Hàm xem danh sách (yêu cầu xác thực)
-        function viewPhoneList() {
-            if (Object.keys(phoneDatabase).length === 0) {
-                showNotification('Chưa có danh sách nào được lưu', 'info');
-                return;
-            }
-            
-            // Yêu cầu xác thực
-            if (!authenticate()) {
-                return;
-            }
-            
-            // Hiển thị danh sách trong textarea
-            const lines = Object.entries(phoneDatabase).map(([phone, link]) => `${phone}-${link}`);
-            document.getElementById('phoneListInput').value = lines.join('\n');
-            showNotification(`✅ Hiển thị ${Object.keys(phoneDatabase).length} số`, 'success');
-        }
-
-        // Hàm xóa danh sách
-        function clearPhoneList() {
-            // Yêu cầu xác thực
-            if (!authenticate()) {
-                return;
-            }
-            
-            if (confirm('Bạn có chắc muốn xóa toàn bộ danh sách số?')) {
-                phoneDatabase = {};
-                localStorage.removeItem('phoneDatabase');
-                document.getElementById('phoneListInput').value = '';
-                document.getElementById('phoneListInput').placeholder = 'Nhập danh sách số (mỗi dòng một số)';
-                showNotification('Đã xóa danh sách số', 'info');
-            }
-        }
-
-
-        // Hàm hiển thị thông báo
-        function showNotification(msg, type = 'error') {
-            const container = document.getElementById('toastContainer');
+        function showToast(msg, type = 'info') {
             const toast = document.createElement('div');
             toast.className = `toast ${type}`;
             toast.textContent = msg;
+            document.body.appendChild(toast);
 
-            container.appendChild(toast);
-
-            // Tự động xóa sau 3 giây
             setTimeout(() => {
-                toast.classList.add('removing');
-                setTimeout(() => {
-                    container.removeChild(toast);
-                }, 300); // Đợi animation kết thúc
+                toast.remove();
             }, 3000);
         }
 
-        // Hàm định dạng thời gian
         function formatTime(date) {
             const day = String(date.getDate()).padStart(2, '0');
             const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -472,34 +320,10 @@
             return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
         }
 
-        // Hàm copy số điện thoại
-        function copyPhoneNumber(phone, provider, event) {
-            // Copy số điện thoại
-            navigator.clipboard.writeText(phone).then(() => {
-                showNotification(`Đã copy số: ${phone}`, 'success');
+        function copyText(text, label, event) {
+            navigator.clipboard.writeText(text).then(() => {
+                showToast(`Copied ${label}: ${text}`, 'info');
                 
-                const element = event.target;
-                const originalText = element.textContent;
-                element.textContent = '✓ Copied!';
-                element.style.color = '#28a745';
-                
-                setTimeout(() => {
-                    element.textContent = originalText;
-                    element.style.color = '';
-                }, 1000);
-            }).catch(err => {
-                showNotification('Không thể copy: ' + err.message, 'error');
-            });
-        }
-
-        // Hàm copy OTP
-        function copyOTP(otp, event) {
-            // Copy vào clipboard
-            navigator.clipboard.writeText(otp).then(() => {
-                // Hiển thị thông báo
-                showNotification(`Đã copy OTP: ${otp}`, 'success');
-                
-                // Hiệu ứng visual
                 const element = event.target;
                 const originalText = element.textContent;
                 element.textContent = '✓ Copied!';
@@ -512,181 +336,100 @@
                     element.style.color = '';
                 }, 1000);
             }).catch(err => {
-                showNotification('Không thể copy: ' + err.message, 'error');
+                showToast('Copy failed: ' + err.message, 'error');
             });
         }
 
-        // Hàm xử lý lấy OTP từ số điện thoại
-        async function fetchOTPByPhone(phone, link, showNotif = true) {
+        function updateTable() {
+            const tbody = document.getElementById('resultTable');
+
+            if (results.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="empty-state">Enter phone numbers and click "Get OTP"</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = results.map((result, index) => `
+                <tr>
+                    <td>${index + 1}</td>
+                    <td class="phone-number" onclick="copyText('${result.phone}', 'phone', event)" title="Click to copy">${result.phone}</td>
+                    <td>${result.otp ? '<span class="otp-code" onclick="copyText(\'' + result.otp + '\', \'OTP\', event)" title="Click to copy OTP">' + result.otp + '</span>' : '-'}</td>
+                    <td>${result.time}</td>
+                    <td>
+                        <span class="status ${result.statusClass}">${result.statusText}</span>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function fetchOTP() {
+            const phoneInput = document.getElementById('phoneInput').value.trim();
+            
+            if (!phoneInput) {
+                showToast('Please enter phone numbers', 'error');
+                return;
+            }
+            
+            const phones = phoneInput
+                .split(/[\n,]/)
+                .map(p => p.trim())
+                .filter(p => p.length > 0);
+            
+            if (phones.length === 0) {
+                showToast('No valid phone numbers found', 'error');
+                return;
+            }
+            
+            showToast(`Processing ${phones.length} phone(s)...`, 'info');
+            
             try {
-                const response = await fetch(`${API_BASE_URL}/api/fetch-sms222`, {
+                const response = await fetch(`${API_BASE_URL}/api/fetch-otp`, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ url: link })
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phones })
                 });
                 
                 const data = await response.json();
                 
-                if (data.success && data.otp) {
-                    const order = {
-                        requestId: 'otp-' + Date.now(),
-                        provider: 'web',
-                        service: 'Web OTP',
-                        phone: phone,
-                        fullLink: link,
-                        otp: data.otp,
-                        time: formatTime(new Date()),
-                        statusText: 'Hoàn thành',
-                        statusClass: 'completed'
-                    };
+                if (data.success && data.results) {
+                    let successCount = 0;
+                    let failCount = 0;
                     
-                    orders.push(order);
+                    data.results.forEach(result => {
+                        const resultObj = {
+                            phone: result.phone,
+                            otp: result.otp || null,
+                            time: formatTime(new Date()),
+                            statusText: result.success ? 'Completed' : (result.message || 'Error'),
+                            statusClass: result.success ? 'completed' : 'error'
+                        };
+                        
+                        results.push(resultObj);
+                        
+                        if (result.success) {
+                            successCount++;
+                        } else {
+                            failCount++;
+                        }
+                    });
+                    
                     updateTable();
                     
-                    if (showNotif) {
-                        showNotification(`✅ OTP nhận được: ${data.otp}`, 'success');
+                    if (successCount > 0) {
+                        showToast(`Success: ${successCount}/${phones.length}`, 'info');
                     }
-                    
-                    return true;
+                    if (failCount > 0) {
+                        showToast(`Failed: ${failCount}/${phones.length}`, 'error');
+                    }
                 } else {
-                    const order = {
-                        requestId: 'otp-' + Date.now(),
-                        provider: 'web',
-                        service: 'Web OTP',
-                        phone: phone,
-                        fullLink: link,
-                        otp: null,
-                        time: formatTime(new Date()),
-                        statusText: 'Không tìm thấy OTP',
-                        statusClass: 'expired'
-                    };
-                    
-                    orders.push(order);
-                    updateTable();
-                    
-                    if (showNotif) {
-                        showNotification('Không tìm thấy OTP', 'error');
-                    }
-                    
-                    return false;
+                    showToast(data.message || 'Request failed', 'error');
                 }
+                
+                document.getElementById('phoneInput').value = '';
+                
             } catch (error) {
-                const order = {
-                    requestId: 'otp-' + Date.now(),
-                    provider: 'web',
-                    service: 'Web OTP',
-                    phone: phone,
-                    fullLink: link,
-                    otp: null,
-                    time: formatTime(new Date()),
-                    statusText: 'Lỗi kết nối',
-                    statusClass: 'expired'
-                };
-                
-                orders.push(order);
-                updateTable();
-                
-                if (showNotif) {
-                    showNotification('Lỗi kết nối: ' + error.message, 'error');
-                }
-                
-                return false;
+                showToast('Connection error: ' + error.message, 'error');
             }
         }
-
-        // Hàm cập nhật bảng
-        function updateTable() {
-            const tbody = document.getElementById('orderTable');
-
-            if (orders.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Chưa có đơn nào. Nhấn "Thuê số" để bắt đầu.</td></tr>';
-                return;
-            }
-
-            tbody.innerHTML = orders.map((order, index) => {
-                return `
-        <tr>
-          <td>${index + 1}</td>
-          <td>${order.service}</td>
-          <td class="phone-number" onclick="copyPhoneNumber('${order.phone}', '${order.provider}', event)" title="Click để copy số: ${order.phone}">${order.phone}</td>
-          <td>${order.otp ? '<span class="otp-code" onclick="copyOTP(\'' + order.otp + '\', event)" title="Click để copy OTP">' + order.otp + '</span>' : '-'}</td>
-          <td>${order.time}</td>
-          <td>
-            <span class="status ${order.statusClass}">${order.statusText}</span>
-          </td>
-        </tr>
-      `;
-            }).join('');
-        }
-
-        // Hàm lấy OTP
-        async function rentNumber() {
-            const phoneInput = document.getElementById('phoneNumber').value.trim();
-            
-            if (!phoneInput) {
-                showNotification('Vui lòng nhập số điện thoại', 'error');
-                return;
-            }
-            
-            // Tách các số theo dòng
-            const phones = phoneInput.split('\n')
-                .map(phone => phone.trim())
-                .filter(phone => phone.length > 0);
-            
-            if (phones.length === 0) {
-                showNotification('Không tìm thấy số nào', 'error');
-                return;
-            }
-            
-            // Kiểm tra tất cả số có trong database không
-            const invalidPhones = phones.filter(phone => !phoneDatabase[phone]);
-            if (invalidPhones.length > 0) {
-                showNotification(`Số ${invalidPhones[0]} không có trong danh sách`, 'error');
-                return;
-            }
-            
-            showNotification(`Đang lấy OTP cho ${phones.length} số...`, 'info');
-            
-            let successCount = 0;
-            let failCount = 0;
-            
-            // Xử lý từng số
-            for (let i = 0; i < phones.length; i++) {
-                const phone = phones[i];
-                const link = phoneDatabase[phone];
-                
-                try {
-                    const result = await fetchOTPByPhone(phone, link, false); // false = không hiển thị notification
-                    if (result) {
-                        successCount++;
-                    } else {
-                        failCount++;
-                    }
-                    
-                    // Delay nhỏ giữa các request
-                    if (i < phones.length - 1) {
-                        await new Promise(resolve => setTimeout(resolve, 1000));
-                    }
-                } catch (error) {
-                    failCount++;
-                }
-            }
-            
-            // Hiển thị kết quả tổng hợp
-            if (successCount > 0) {
-                showNotification(`✅ Thành công: ${successCount}/${phones.length} số`, 'success');
-            }
-            if (failCount > 0) {
-                showNotification(`❌ Thất bại: ${failCount}/${phones.length} số`, 'error');
-            }
-            
-            // Clear input
-            document.getElementById('phoneNumber').value = '';
-        }
-
     </script>
 </body>
-
 </html>
