@@ -20,7 +20,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
-console.log('✅ NeyuT OTP Service started');
+console.log('Server started');
 
 // Route: Admin login
 app.post('/api/admin/login', (req, res) => {
@@ -205,8 +205,6 @@ app.post('/api/fetch-otp', async (req, res) => {
       }
       
       try {
-        console.log(`[NeyuT] Fetching OTP for ${phone}`);
-        
         const response = await axios.get(phoneEntry.url, {
           timeout: 15000,
           headers: {
@@ -263,7 +261,6 @@ app.post('/api/fetch-otp', async (req, res) => {
         });
         
       } catch (error) {
-        console.error(`[NeyuT] Error for ${phone}:`, error.message);
         results.push({
           phone,
           success: false,
@@ -278,7 +275,6 @@ app.post('/api/fetch-otp', async (req, res) => {
     });
     
   } catch (error) {
-    console.error('[NeyuT] Error:', error.message);
     res.status(500).json({
       success: false,
       message: 'Server error: ' + error.message
