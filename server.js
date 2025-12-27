@@ -4,6 +4,7 @@ const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -12,8 +13,39 @@ const PORT = process.env.PORT || 3000;
 const ADMIN_USERNAME = 'nvt3001';
 const ADMIN_PASSWORD = 'neyuT@2003';
 
-// In-memory storage for phone numbers
+// Database file path
+const DB_FILE = path.join(__dirname, 'phone_data.json');
+
+// Load phone database from file
 let phoneDatabase = [];
+
+function loadDatabase() {
+  try {
+    if (fs.existsSync(DB_FILE)) {
+      const data = fs.readFileSync(DB_FILE, 'utf8');
+      phoneDatabase = JSON.parse(data);
+      console.log(`Loaded ${phoneDatabase.length} phone numbers from database`);
+    } else {
+      phoneDatabase = [];
+      console.log('No existing database found, starting fresh');
+    }
+  } catch (error) {
+    console.error('Error loading database:', error.message);
+    phoneDatabase = [];
+  }
+}
+
+function saveDatabase() {
+  try {
+    fs.writeFileSync(DB_FILE, JSON.stringify(phoneDatabase, null, 2), 'utf8');
+    console.log(`Saved ${phoneDatabase.length} phone numbers to database`);
+  } catch (error) {
+    console.error('Error saving database:', error.message);
+  }
+}
+
+// Load database on startup
+loadDatabase();
 
 // Middleware
 app.use(cors());
@@ -74,6 +106,7 @@ app.post('/api/admin/phones', (req, res) => {
   };
   
   phoneDatabase.push(newPhone);
+  saveDatabase();
   
   res.json({
     success: true,
@@ -97,6 +130,7 @@ app.put('/api/admin/phones/:id', (req, res) => {
   if (phone) phoneDatabase[index].phone = phone;
   if (url) phoneDatabase[index].url = url;
   phoneDatabase[index].updatedAt = new Date().toISOString();
+  saveDatabase();
   
   res.json({
     success: true,
@@ -117,6 +151,7 @@ app.delete('/api/admin/phones/:id', (req, res) => {
   }
   
   phoneDatabase.splice(index, 1);
+  saveDatabase();
   
   res.json({
     success: true,
@@ -169,6 +204,8 @@ app.post('/api/admin/phones/bulk', (req, res) => {
     phoneDatabase.push(newPhone);
     added.push(newPhone);
   });
+  
+  saveDatabase();
   
   res.json({
     success: true,

@@ -5,6 +5,9 @@ package-lock.json
 # Environment variables (QUAN TRỌNG - không push lên GitHub!)
 .env
 
+# Database file
+phone_data.json
+
 # Logs
 *.log
 npm-debug.log*
